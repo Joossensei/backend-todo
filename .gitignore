@@ -1,0 +1,14 @@
+.env
+.venv
+.DS_Store
+.vscode
+.idea
+todo-app-venv/
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+*.pyzw
