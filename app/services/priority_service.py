@@ -1,0 +1,81 @@
+# app/services/todo_service.py
+from sqlalchemy.orm import Session
+from app.models.priority import Priority
+from app.schemas.priority import PriorityCreate, PriorityUpdate
+import uuid
+
+
+class PriorityService:
+    @staticmethod
+    def create_priority(db: Session, priority: PriorityCreate) -> Priority:
+        db_priority = Priority(
+            key=str(uuid.uuid4()),
+            name=priority.name,
+            description=priority.description,
+            color=priority.color,
+            order=priority.order
+        )
+        db.add(db_priority)
+        db.commit()
+        db.refresh(db_priority)
+        return db_priority
+
+    @staticmethod
+    def fetch_priority_id_by_key(db: Session, key: str) -> int:
+        """Get a priority by its UUID key instead of ID."""
+        db_priorities = db.query(Priority).filter(Priority.key == key)
+        if db_priorities.count() == 0:
+            raise ValueError(f"Priority with key {key} not found")
+        if db_priorities.count() > 1:
+            raise ValueError(f"Multiple priorities found with key {key}")
+        return db_priorities.first().id
+
+    @staticmethod
+    def get_priorities(db: Session, skip: int = 0, limit: int = 10):
+        return db.query(Priority).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def get_priority(db: Session, priority_id: int):
+        return db.query(Priority).filter(Priority.id == priority_id).first()
+
+    @staticmethod
+    def update_priority(db: Session, priority_id: int,
+                        priority_update: PriorityUpdate) -> Priority:
+        db_priority = db.query(Priority).filter(
+            Priority.id == priority_id).first()
+        if db_priority:
+            for field, value in priority_update.dict(exclude_unset=True).items():
+                setattr(db_priority, field, value)
+            db.commit()
+            db.refresh(db_priority)
+        return db_priority
+
+    @staticmethod
+    def delete_priority(db: Session, priority_id: int) -> bool:
+        db_priority = db.query(Priority).filter(
+            Priority.id == priority_id).first()
+
+        if not db_priority:
+            raise ValueError(f"Priority with id {priority_id} not found")
+
+        db.delete(db_priority)
+        db.commit()
+        return True  # Successfully deleted
+
+    @staticmethod
+    def get_total_priorities(db: Session) -> int:
+        return db.query(Priority).count()
+
+    @staticmethod
+    def patch_priority(db: Session, priority_id: int,
+                       priority_patch: dict) -> Priority:
+        db_priority = db.query(Priority).filter(
+            Priority.id == priority_id).first()
+        if not db_priority:
+            raise ValueError(f"Priority with id {priority_id} not found")
+
+        for field, value in priority_patch.items():
+            setattr(db_priority, field, value)
+        db.commit()
+        db.refresh(db_priority)
+        return db_priority

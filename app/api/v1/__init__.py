@@ -1,1 +1,1 @@
-from .endpoints import todos, users
+from .endpoints import todos, priorities
