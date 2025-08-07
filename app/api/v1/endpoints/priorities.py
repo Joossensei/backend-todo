@@ -3,7 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_db
 from sqlalchemy.orm import Session
 from app.schemas.priority import (
-    PriorityCreate, PriorityUpdate, PriorityResponse, PriorityListResponse
+    PriorityCreate,
+    PriorityUpdate,
+    PriorityResponse,
+    PriorityListResponse,
 )
 from app.services.priority_service import PriorityService
 
@@ -13,13 +16,12 @@ router = APIRouter()
 
 
 @router.get("/")
-def get_priorities(db: Session = Depends(get_db),
-                   page: int = 1, size: int = 10):
-    priorities = PriorityService.get_priorities(db, page, size)
+def get_priorities(db: Session = Depends(get_db), page: int = 1, size: int = 10):
+    skip = (page - 1) * size
+    priorities = PriorityService.get_priorities(db, skip, size)
     total = PriorityService.get_total_priorities(db)
     return PriorityListResponse(
-        priorities=[PriorityResponse(**priority.to_dict())
-                    for priority in priorities],
+        priorities=[PriorityResponse(**priority.to_dict()) for priority in priorities],
         total=total,
         page=page,
         size=len(priorities),
@@ -35,7 +37,8 @@ def get_priority_by_key(key: str, db: Session = Depends(get_db)):
         return PriorityResponse(**priority.to_dict())
     except ValueError:
         raise HTTPException(
-            status_code=404, detail=f"Priority with key {key} not found")
+            status_code=404, detail=f"Priority with key {key} not found"
+        )
 
 
 @router.post("/")
@@ -48,41 +51,42 @@ def create_priority(priority: PriorityCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{key}")
-def update_priority(key: str, priority: PriorityUpdate,
-                    db: Session = Depends(get_db)):
+def update_priority(key: str, priority: PriorityUpdate, db: Session = Depends(get_db)):
     try:
         priority_id = PriorityService.fetch_priority_id_by_key(db, key)
     except ValueError:
         raise HTTPException(
-            status_code=404, detail=f"Priority with key {key} not found")
+            status_code=404, detail=f"Priority with key {key} not found"
+        )
 
     try:
         priority = PriorityService.update_priority(db, priority_id, priority)
         return PriorityResponse(**priority.to_dict())
     except Exception:
         raise HTTPException(
-            status_code=500,
-            detail="Internal server error while updating priority")
+            status_code=500, detail="Internal server error while updating priority"
+        )
 
 
 @router.patch("/{key}")
-def patch_priority(key: str, priority_patch: dict,
-                   db: Session = Depends(get_db)):
+def patch_priority(key: str, priority_patch: dict, db: Session = Depends(get_db)):
     try:
         priority_id = PriorityService.fetch_priority_id_by_key(db, key)
     except ValueError:
         raise HTTPException(
-            status_code=404, detail=f"Priority with key {key} not found")
+            status_code=404, detail=f"Priority with key {key} not found"
+        )
 
     try:
         # Only update fields that are provided
         updated_priority = PriorityService.patch_priority(
-            db, priority_id, priority_patch)
+            db, priority_id, priority_patch
+        )
         return PriorityResponse(**updated_priority.to_dict())
     except Exception:
         raise HTTPException(
-            status_code=500,
-            detail="Internal server error while updating priority")
+            status_code=500, detail="Internal server error while updating priority"
+        )
 
 
 @router.delete("/{key}")
@@ -93,8 +97,9 @@ def delete_priority(key: str, db: Session = Depends(get_db)):
             return {"message": "Priority deleted successfully"}
         else:
             raise HTTPException(
-                status_code=500,
-                detail="Internal server error while deleting priority")
+                status_code=500, detail="Internal server error while deleting priority"
+            )
     except ValueError:
         raise HTTPException(
-            status_code=404, detail=f"Priority with key {key} not found")
+            status_code=404, detail=f"Priority with key {key} not found"
+        )

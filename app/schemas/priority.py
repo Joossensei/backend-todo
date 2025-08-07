@@ -10,6 +10,7 @@ class PriorityCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
     color: str = Field(..., min_length=1, max_length=100)
+    icon: Optional[str] = Field(None, max_length=100)
     order: int = Field(1, ge=1)
 
 
@@ -17,6 +18,7 @@ class PriorityUpdate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
     color: str = Field(..., min_length=1, max_length=100)
+    icon: Optional[str] = Field(None, max_length=100)
     order: int = Field(1, ge=1)
 
 # Response schemas (what your API returns)
@@ -27,6 +29,7 @@ class PriorityResponse(BaseModel):
     name: str
     description: Optional[str]
     color: str
+    icon: Optional[str]
     order: int
     created_at: datetime
     updated_at: Optional[datetime]

@@ -9,16 +9,15 @@ import uuid
 class TodoService:
     @staticmethod
     def create_todo(db: Session, todo: TodoCreate) -> Todo:
-        priority = db.query(Priority).filter(
-            Priority.key == todo.priority).first()
+        priority = db.query(Priority).filter(Priority.key == todo.priority).first()
         if not priority:
-            raise ValueError(f"Priority with id {todo.priority} not found")
+            raise ValueError(f"Priority with key {todo.priority} not found")
         db_todo = Todo(
             key=str(uuid.uuid4()),
             title=todo.title,
             description=todo.description,
             completed=todo.completed,
-            priority=priority.key
+            priority=priority.key,
         )
         db.add(db_todo)
         db.commit()
@@ -45,20 +44,19 @@ class TodoService:
 
     @staticmethod
     def update_todo(db: Session, todo_id: int, todo_update: TodoUpdate):
-        priority = db.query(Priority).filter(
-            Priority.key == todo_update.priority).first()
+        priority = (
+            db.query(Priority).filter(Priority.key == todo_update.priority).first()
+        )
         if not priority:
-            raise ValueError(
-                f"Priority with id {todo_update.priority} not found")
+            raise ValueError(f"Priority with id {todo_update.priority} not found")
         todo_update.priority = priority.key
         db_todo = db.query(Todo).filter(Todo.id == todo_id).first()
         if db_todo:
-            for field, value in todo_update.dict(exclude_unset=True).items():
+            for field, value in todo_update.model_dump(exclude_unset=True).items():
                 if field == "priority":
                     setattr(db_todo, field, priority.key)
                 else:
                     setattr(db_todo, field, value)
-                setattr(db_todo, field, value)
             db.commit()
             db.refresh(db_todo)
         return db_todo
@@ -81,11 +79,13 @@ class TodoService:
     @staticmethod
     def patch_todo(db: Session, todo_id: int, todo_patch: dict) -> Todo:
         if "priority" in todo_patch:
-            priority = db.query(Priority).filter(
-                Priority.key == todo_patch["priority"]).first()
+            priority = (
+                db.query(Priority)
+                .filter(Priority.key == todo_patch["priority"])
+                .first()
+            )
             if not priority:
-                raise ValueError(
-                    f"Priority with id {todo_patch['priority']} not found")
+                raise ValueError(f"Priority with id {todo_patch['priority']} not found")
             todo_patch["priority"] = priority.key
         db_todo = db.query(Todo).filter(Todo.id == todo_id).first()
         if not db_todo:

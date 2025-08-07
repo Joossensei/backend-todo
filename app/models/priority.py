@@ -12,17 +12,20 @@ class Priority(Base):
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     color = Column(String(100), nullable=False)
+    icon = Column(String(100), nullable=True)  # Icon identifier for frontend
     order = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     def __str__(self):
         return f"Priority(id={self.id}, name='{self.name}'," \
-            f" key='{self.key}', color='{self.color}', order={self.order})"
+            f" key='{self.key}', color='{self.color}', icon='{
+                self.icon}', order={self.order})"
 
     def __repr__(self):
         return f"<Priority(id={self.id}, name='{self.name}'," \
-            f" key='{self.key}', color='{self.color}', order={self.order})>"
+            f" key='{self.key}', color='{self.color}', icon='{
+                self.icon}', order={self.order})>"
 
     def to_dict(self):
         """Convert to dictionary for JSON serialization"""
@@ -32,6 +35,7 @@ class Priority(Base):
             'name': self.name,
             'description': self.description,
             'color': self.color,
+            'icon': self.icon,
             'order': self.order,
             'created_at': self.created_at.isoformat()
             if self.created_at else None,
@@ -45,6 +49,7 @@ class Priority(Base):
         print(f"   ID: {self.id}")
         print(f"   Key: {self.key}")
         print(f"   Color: {self.color}")
+        print(f"   Icon: {self.icon}")
         print(f"   Order: {self.order}")
         if self.description:
             print(f"   Description: {self.description}")

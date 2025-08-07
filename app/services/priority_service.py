@@ -13,7 +13,7 @@ class PriorityService:
             name=priority.name,
             description=priority.description,
             color=priority.color,
-            order=priority.order
+            order=priority.order,
         )
         db.add(db_priority)
         db.commit()
@@ -39,12 +39,12 @@ class PriorityService:
         return db.query(Priority).filter(Priority.id == priority_id).first()
 
     @staticmethod
-    def update_priority(db: Session, priority_id: int,
-                        priority_update: PriorityUpdate) -> Priority:
-        db_priority = db.query(Priority).filter(
-            Priority.id == priority_id).first()
+    def update_priority(
+        db: Session, priority_id: int, priority_update: PriorityUpdate
+    ) -> Priority:
+        db_priority = db.query(Priority).filter(Priority.id == priority_id).first()
         if db_priority:
-            for field, value in priority_update.dict(exclude_unset=True).items():
+            for field, value in priority_update.model_dump(exclude_unset=True).items():
                 setattr(db_priority, field, value)
             db.commit()
             db.refresh(db_priority)
@@ -52,8 +52,7 @@ class PriorityService:
 
     @staticmethod
     def delete_priority(db: Session, priority_id: int) -> bool:
-        db_priority = db.query(Priority).filter(
-            Priority.id == priority_id).first()
+        db_priority = db.query(Priority).filter(Priority.id == priority_id).first()
 
         if not db_priority:
             raise ValueError(f"Priority with id {priority_id} not found")
@@ -67,10 +66,8 @@ class PriorityService:
         return db.query(Priority).count()
 
     @staticmethod
-    def patch_priority(db: Session, priority_id: int,
-                       priority_patch: dict) -> Priority:
-        db_priority = db.query(Priority).filter(
-            Priority.id == priority_id).first()
+    def patch_priority(db: Session, priority_id: int, priority_patch: dict) -> Priority:
+        db_priority = db.query(Priority).filter(Priority.id == priority_id).first()
         if not db_priority:
             raise ValueError(f"Priority with id {priority_id} not found")
 
