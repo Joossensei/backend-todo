@@ -103,3 +103,9 @@ def delete_priority(key: str, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=404, detail=f"Priority with key {key} not found"
         )
+
+
+@router.post("/util/check-availability")
+def check_availability(priority: PriorityCreate, db: Session = Depends(get_db)):
+    available, message = PriorityService.check_availability(db, priority)
+    return {"available": available, "message": message}

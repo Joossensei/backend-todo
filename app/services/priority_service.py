@@ -76,3 +76,15 @@ class PriorityService:
         db.commit()
         db.refresh(db_priority)
         return db_priority
+
+    @staticmethod
+    def check_availability(db: Session, priority: PriorityCreate) -> tuple[bool, str]:
+        # Make sure the name is not already taken
+        db_priority = db.query(Priority).filter(Priority.name == priority.name).first()
+        if db_priority:
+            return False, "Name already taken"
+        # Make sure the order is not already taken
+        db_priority = db.query(Priority).filter(Priority.order == priority.order).first()
+        if db_priority:
+            return False, "Order already taken"
+        return True, "Available"
