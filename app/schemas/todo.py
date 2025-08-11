@@ -11,7 +11,7 @@ class TodoCreate(BaseModel):
     description: Optional[str] = None
     priority: str = Field(..., min_length=1, max_length=36)
     completed: bool = False
-
+    user_key: str
 
 class TodoUpdate(BaseModel):
     title: str = Field(..., min_length=1, max_length=100)
@@ -28,6 +28,7 @@ class TodoResponse(BaseModel):
     description: Optional[str]
     completed: bool
     priority: str
+    user_key: str
     created_at: datetime
     updated_at: Optional[datetime]
 

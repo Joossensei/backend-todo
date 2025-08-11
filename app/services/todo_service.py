@@ -8,8 +8,8 @@ import uuid
 
 class TodoService:
     @staticmethod
-    def create_todo(db: Session, todo: TodoCreate) -> Todo:
-        priority = db.query(Priority).filter(Priority.key == todo.priority).first()
+    def create_todo(db: Session, todo: TodoCreate, user_key: str) -> Todo:
+        priority = db.query(Priority).filter(Priority.key == todo.priority, Priority.user_key == user_key).first()
         if not priority:
             raise ValueError(f"Priority with key {todo.priority} not found")
         db_todo = Todo(
@@ -18,6 +18,7 @@ class TodoService:
             description=todo.description,
             completed=todo.completed,
             priority=priority.key,
+            user_key=user_key,
         )
         db.add(db_todo)
         db.commit()
@@ -25,9 +26,9 @@ class TodoService:
         return db_todo
 
     @staticmethod
-    def fetch_todo_id_by_key(db: Session, key: str) -> int:
+    def fetch_todo_id_by_key(db: Session, key: str, user_key: str) -> int:
         """Get a todo by its UUID key instead of ID."""
-        db_todos = db.query(Todo).filter(Todo.key == key)
+        db_todos = db.query(Todo).filter(Todo.key == key, Todo.user_key == user_key)
         if db_todos.count() == 0:
             raise ValueError(f"Todo with key {key} not found")
         if db_todos.count() > 1:
@@ -35,22 +36,22 @@ class TodoService:
         return db_todos.first().id
 
     @staticmethod
-    def get_todos(db: Session, skip: int = 0, limit: int = 10):
-        return db.query(Todo).offset(skip).limit(limit).all()
+    def get_todos(db: Session, user_key: str, skip: int = 0, limit: int = 10):
+        return db.query(Todo).filter(Todo.user_key == user_key).offset(skip).limit(limit).all()
 
     @staticmethod
-    def get_todo(db: Session, todo_id: int):
-        return db.query(Todo).filter(Todo.id == todo_id).first()
+    def get_todo(db: Session, todo_id: int, user_key: str):
+        return db.query(Todo).filter(Todo.id == todo_id, Todo.user_key == user_key).first()
 
     @staticmethod
-    def update_todo(db: Session, todo_id: int, todo_update: TodoUpdate):
+    def update_todo(db: Session, todo_id: int, todo_update: TodoUpdate, user_key: str):
         priority = (
             db.query(Priority).filter(Priority.key == todo_update.priority).first()
         )
         if not priority:
             raise ValueError(f"Priority with id {todo_update.priority} not found")
         todo_update.priority = priority.key
-        db_todo = db.query(Todo).filter(Todo.id == todo_id).first()
+        db_todo = db.query(Todo).filter(Todo.id == todo_id, Todo.user_key == user_key).first()
         if db_todo:
             for field, value in todo_update.model_dump(exclude_unset=True).items():
                 if field == "priority":
@@ -62,8 +63,8 @@ class TodoService:
         return db_todo
 
     @staticmethod
-    def delete_todo(db: Session, todo_id: int) -> bool:
-        db_todo = db.query(Todo).filter(Todo.id == todo_id).first()
+    def delete_todo(db: Session, todo_id: int, user_key: str) -> bool:
+        db_todo = db.query(Todo).filter(Todo.id == todo_id, Todo.user_key == user_key).first()
 
         if not db_todo:
             raise ValueError(f"Todo with id {todo_id} not found")
@@ -77,7 +78,7 @@ class TodoService:
         return db.query(Todo).count()
 
     @staticmethod
-    def patch_todo(db: Session, todo_id: int, todo_patch: dict) -> Todo:
+    def patch_todo(db: Session, todo_id: int, todo_patch: dict, user_key: str) -> Todo:
         if "priority" in todo_patch:
             priority = (
                 db.query(Priority)
@@ -87,7 +88,7 @@ class TodoService:
             if not priority:
                 raise ValueError(f"Priority with id {todo_patch['priority']} not found")
             todo_patch["priority"] = priority.key
-        db_todo = db.query(Todo).filter(Todo.id == todo_id).first()
+        db_todo = db.query(Todo).filter(Todo.id == todo_id, Todo.user_key == user_key).first()
         if not db_todo:
             raise ValueError(f"Todo with id {todo_id} not found")
 

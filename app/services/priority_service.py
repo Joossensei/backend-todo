@@ -7,13 +7,15 @@ import uuid
 
 class PriorityService:
     @staticmethod
-    def create_priority(db: Session, priority: PriorityCreate) -> Priority:
+    def create_priority(db: Session, priority: PriorityCreate, user_key: str) -> Priority:
         db_priority = Priority(
             key=str(uuid.uuid4()),
             name=priority.name,
             description=priority.description,
             color=priority.color,
+            icon=priority.icon,
             order=priority.order,
+            user_key=user_key,
         )
         db.add(db_priority)
         db.commit()
@@ -21,9 +23,9 @@ class PriorityService:
         return db_priority
 
     @staticmethod
-    def fetch_priority_id_by_key(db: Session, key: str) -> int:
+    def fetch_priority_id_by_key(db: Session, key: str, user_key: str) -> int:
         """Get a priority by its UUID key instead of ID."""
-        db_priorities = db.query(Priority).filter(Priority.key == key)
+        db_priorities = db.query(Priority).filter(Priority.key == key, Priority.user_key == user_key)
         if db_priorities.count() == 0:
             raise ValueError(f"Priority with key {key} not found")
         if db_priorities.count() > 1:
@@ -31,18 +33,18 @@ class PriorityService:
         return db_priorities.first().id
 
     @staticmethod
-    def get_priorities(db: Session, skip: int = 0, limit: int = 10):
-        return db.query(Priority).offset(skip).limit(limit).all()
+    def get_priorities(db: Session, user_key: str, skip: int = 0, limit: int = 10):
+        return db.query(Priority).filter(Priority.user_key == user_key).offset(skip).limit(limit).all()
 
     @staticmethod
-    def get_priority(db: Session, priority_id: int):
-        return db.query(Priority).filter(Priority.id == priority_id).first()
+    def get_priority(db: Session, priority_id: int, user_key: str):
+        return db.query(Priority).filter(Priority.id == priority_id, Priority.user_key == user_key).first()
 
     @staticmethod
     def update_priority(
-        db: Session, priority_id: int, priority_update: PriorityUpdate
+        db: Session, priority_id: int, priority_update: PriorityUpdate, user_key: str
     ) -> Priority:
-        db_priority = db.query(Priority).filter(Priority.id == priority_id).first()
+        db_priority = db.query(Priority).filter(Priority.id == priority_id, Priority.user_key == user_key).first()
         if db_priority:
             for field, value in priority_update.model_dump(exclude_unset=True).items():
                 setattr(db_priority, field, value)
@@ -51,8 +53,8 @@ class PriorityService:
         return db_priority
 
     @staticmethod
-    def delete_priority(db: Session, priority_id: int) -> bool:
-        db_priority = db.query(Priority).filter(Priority.id == priority_id).first()
+    def delete_priority(db: Session, priority_id: int, user_key: str) -> bool:
+        db_priority = db.query(Priority).filter(Priority.id == priority_id, Priority.user_key == user_key).first()
 
         if not db_priority:
             raise ValueError(f"Priority with id {priority_id} not found")
@@ -66,8 +68,8 @@ class PriorityService:
         return db.query(Priority).count()
 
     @staticmethod
-    def patch_priority(db: Session, priority_id: int, priority_patch: dict) -> Priority:
-        db_priority = db.query(Priority).filter(Priority.id == priority_id).first()
+    def patch_priority(db: Session, priority_id: int, priority_patch: dict, user_key: str) -> Priority:
+        db_priority = db.query(Priority).filter(Priority.id == priority_id, Priority.user_key == user_key).first()
         if not db_priority:
             raise ValueError(f"Priority with id {priority_id} not found")
 
@@ -78,13 +80,13 @@ class PriorityService:
         return db_priority
 
     @staticmethod
-    def check_availability(db: Session, priority: PriorityCreate) -> tuple[bool, str]:
+    def check_availability(db: Session, priority: PriorityCreate, user_key: str) -> tuple[bool, str]:
         # Make sure the name is not already taken
-        db_priority = db.query(Priority).filter(Priority.name == priority.name).first()
+        db_priority = db.query(Priority).filter(Priority.name == priority.name, Priority.user_key == user_key).first()
         if db_priority:
             return False, "Name already taken"
         # Make sure the order is not already taken
-        db_priority = db.query(Priority).filter(Priority.order == priority.order).first()
+        db_priority = db.query(Priority).filter(Priority.order == priority.order, Priority.user_key == user_key).first()
         if db_priority:
             return False, "Order already taken"
         return True, "Available"

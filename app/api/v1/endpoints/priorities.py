@@ -9,6 +9,9 @@ from app.schemas.priority import (
     PriorityListResponse,
 )
 from app.services.priority_service import PriorityService
+from app.api import get_current_user
+from app.schemas.user import User as UserSchema
+from typing import Annotated
 
 router = APIRouter()
 
@@ -16,9 +19,14 @@ router = APIRouter()
 
 
 @router.get("/")
-def get_priorities(db: Session = Depends(get_db), page: int = 1, size: int = 10):
+def get_priorities(
+    current_user: Annotated[UserSchema, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+    page: int = 1,
+    size: int = 10
+):
     skip = (page - 1) * size
-    priorities = PriorityService.get_priorities(db, skip, size)
+    priorities = PriorityService.get_priorities(db, current_user.key, skip, size)
     total = PriorityService.get_total_priorities(db)
     return PriorityListResponse(
         priorities=[PriorityResponse(**priority.to_dict()) for priority in priorities],
@@ -30,10 +38,14 @@ def get_priorities(db: Session = Depends(get_db), page: int = 1, size: int = 10)
 
 
 @router.get("/{key}")
-def get_priority_by_key(key: str, db: Session = Depends(get_db)):
+def get_priority_by_key(
+    key: str,
+    current_user: Annotated[UserSchema, Depends(get_current_user)],
+    db: Session = Depends(get_db)
+):
     try:
-        priority_id = PriorityService.fetch_priority_id_by_key(db, key)
-        priority = PriorityService.get_priority(db, priority_id)
+        priority_id = PriorityService.fetch_priority_id_by_key(db, key, current_user.key)
+        priority = PriorityService.get_priority(db, priority_id, current_user.key)
         return PriorityResponse(**priority.to_dict())
     except ValueError:
         raise HTTPException(
@@ -42,25 +54,34 @@ def get_priority_by_key(key: str, db: Session = Depends(get_db)):
 
 
 @router.post("/")
-def create_priority(priority: PriorityCreate, db: Session = Depends(get_db)):
+def create_priority(
+    priority: PriorityCreate, 
+    current_user: Annotated[UserSchema, Depends(get_current_user)],
+    db: Session = Depends(get_db)    
+):
     try:
-        priority = PriorityService.create_priority(db, priority)
+        priority = PriorityService.create_priority(db, priority, current_user.key)
         return PriorityResponse(**priority.to_dict())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.put("/{key}")
-def update_priority(key: str, priority: PriorityUpdate, db: Session = Depends(get_db)):
+def update_priority(
+    key: str, 
+    priority: PriorityUpdate, 
+    current_user: Annotated[UserSchema, Depends(get_current_user)], 
+    db: Session = Depends(get_db)
+):
     try:
-        priority_id = PriorityService.fetch_priority_id_by_key(db, key)
+        priority_id = PriorityService.fetch_priority_id_by_key(db, key, current_user.key)
     except ValueError:
         raise HTTPException(
             status_code=404, detail=f"Priority with key {key} not found"
         )
 
     try:
-        priority = PriorityService.update_priority(db, priority_id, priority)
+        priority = PriorityService.update_priority(db, priority_id, priority, current_user.key)
         return PriorityResponse(**priority.to_dict())
     except Exception:
         raise HTTPException(
@@ -69,9 +90,14 @@ def update_priority(key: str, priority: PriorityUpdate, db: Session = Depends(ge
 
 
 @router.patch("/{key}")
-def patch_priority(key: str, priority_patch: dict, db: Session = Depends(get_db)):
+def patch_priority(
+    key: str, 
+    priority_patch: dict, 
+    current_user: Annotated[UserSchema, Depends(get_current_user)], 
+    db: Session = Depends(get_db)
+):
     try:
-        priority_id = PriorityService.fetch_priority_id_by_key(db, key)
+        priority_id = PriorityService.fetch_priority_id_by_key(db, key, current_user.key)
     except ValueError:
         raise HTTPException(
             status_code=404, detail=f"Priority with key {key} not found"
@@ -80,7 +106,7 @@ def patch_priority(key: str, priority_patch: dict, db: Session = Depends(get_db)
     try:
         # Only update fields that are provided
         updated_priority = PriorityService.patch_priority(
-            db, priority_id, priority_patch
+            db, priority_id, priority_patch, current_user.key
         )
         return PriorityResponse(**updated_priority.to_dict())
     except Exception:
@@ -90,10 +116,14 @@ def patch_priority(key: str, priority_patch: dict, db: Session = Depends(get_db)
 
 
 @router.delete("/{key}")
-def delete_priority(key: str, db: Session = Depends(get_db)):
+def delete_priority(
+    key: str, 
+    current_user: Annotated[UserSchema, Depends(get_current_user)], 
+    db: Session = Depends(get_db)
+):
     try:
-        priority_id = PriorityService.fetch_priority_id_by_key(db, key)
-        if PriorityService.delete_priority(db, priority_id):
+        priority_id = PriorityService.fetch_priority_id_by_key(db, key, current_user.key)
+        if PriorityService.delete_priority(db, priority_id, current_user.key):
             return {"message": "Priority deleted successfully"}
         else:
             raise HTTPException(
@@ -106,6 +136,10 @@ def delete_priority(key: str, db: Session = Depends(get_db)):
 
 
 @router.post("/util/check-availability")
-def check_availability(priority: PriorityCreate, db: Session = Depends(get_db)):
-    available, message = PriorityService.check_availability(db, priority)
+def check_availability(
+    priority: PriorityCreate, 
+    current_user: Annotated[UserSchema, Depends(get_current_user)], 
+    db: Session = Depends(get_db)
+):
+    available, message = PriorityService.check_availability(db, priority, current_user.key)
     return {"available": available, "message": message}

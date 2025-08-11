@@ -9,8 +9,9 @@ class Settings(BaseSettings):
     database_url: str = Field(..., env="DATABASE_URL")
 
     # Security settings
-    secret_key: str = Field(..., env="SECRET_KEY")
-    access_token_expire_days: int = Field(30, env="ACCESS_TOKEN_EXIRE_DAYS")
+    SECRET_KEY: str = Field(..., env="SECRET_KEY")
+    ACCESS_TOKEN_EXPIRE_DAYS: int = Field(30, env="ACCESS_TOKEN_EXPIRE_DAYS")
+    ALGORITHM: str = Field("HS256", env="ALGORITHM")
 
     # API settings
     api_v1_str: str = "/api/v1"
