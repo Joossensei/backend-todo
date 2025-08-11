@@ -4,17 +4,11 @@ from typing import List
 from app.database import get_db
 from app.models.user import User as UserModel
 from app.schemas.user import User, UserCreate, UserUpdate, UserUpdatePassword
-from passlib.context import CryptContext
 import uuid
-from app.api import get_current_user, get_current_active_user
-from typing import Annotated
+from app.api import get_current_user
+from app.core.security import PasswordHasher
 
 router = APIRouter()
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
 
 @router.get("/", response_model=List[User], dependencies=[Depends(get_current_user)])
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -41,7 +35,7 @@ def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
         name=user_in.name,
         username=user_in.username,
         email=user_in.email,
-        hashed_password=get_password_hash(user_in.password),
+        hashed_password=PasswordHasher.hash(user_in.password),
         is_active=user_in.is_active,
     )
     db.add(db_user)
@@ -58,8 +52,6 @@ def update_user(key: str, user_in: UserUpdate, db: Session = Depends(get_db)):
         user.name = user_in.name
     if user_in.email is not None:
         user.email = user_in.email
-    if user_in.password is not None:
-        user.hashed_password = get_password_hash(user_in.password)
     if user_in.is_active is not None:
         user.is_active = user_in.is_active
     db.commit()
@@ -71,7 +63,9 @@ def update_user_password(key: str, user_in: UserUpdatePassword, db: Session = De
     user = db.query(UserModel).filter(UserModel.key == key).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    user.hashed_password = get_password_hash(user_in.password)
+    if not PasswordHasher.verify(user_in.current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Invalid current password")
+    user.hashed_password = PasswordHasher.hash(user_in.password)
     db.commit()
     db.refresh(user)
     return user

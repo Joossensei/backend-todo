@@ -25,6 +25,7 @@ class UserUpdate(BaseModel):
 
 
 class UserUpdatePassword(BaseModel):
+    current_password: str
     password: str
 
 
@@ -45,6 +46,7 @@ class User(BaseModel):
     email: EmailStr
     is_active: bool
     created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True

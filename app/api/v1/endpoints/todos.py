@@ -90,8 +90,13 @@ def patch_todo(
 ):
     try:
         todo_id = TodoService.fetch_todo_id_by_key(db, key, current_user.key)
-    except ValueError:
-        raise HTTPException(status_code=404, detail=f"Todo with key {key} not found")
+    except ValueError as e:
+        if current_user.key in str(e):
+            raise HTTPException(status_code=404, detail=f"Todo with key {key} not found for user {current_user.key}")
+        else:
+            raise HTTPException(status_code=404, detail="Todo not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while patching todo (original error message: {e})")
 
     try:
         # Only update fields that are provided

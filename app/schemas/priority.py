@@ -20,9 +20,9 @@ class PriorityUpdate(BaseModel):
     color: str = Field(..., min_length=1, max_length=100)
     icon: Optional[str] = Field(None, max_length=100)
     order: int = Field(1, ge=1)
+
+
 # Response schemas (what your API returns)
-
-
 class PriorityResponse(BaseModel):
     key: str
     name: str

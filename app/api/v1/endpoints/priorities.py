@@ -12,6 +12,7 @@ from app.services.priority_service import PriorityService
 from app.api import get_current_user
 from app.schemas.user import User as UserSchema
 from typing import Annotated
+from sqlalchemy.exc import IntegrityError
 
 router = APIRouter()
 
@@ -62,6 +63,19 @@ def create_priority(
     try:
         priority = PriorityService.create_priority(db, priority, current_user.key)
         return PriorityResponse(**priority.to_dict())
+    except IntegrityError as e:
+        if "uq_priority_user_order" in str(e):
+            raise HTTPException(
+                status_code=400, detail=f"Priority order already exists"
+            )
+        elif "uq_priority_user_name" in str(e):
+            raise HTTPException(
+                status_code=400, detail=f"Priority name already exists"
+            )
+        else:
+            raise HTTPException(
+                status_code=500, detail="Internal server error while creating priority"
+            )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -83,6 +97,19 @@ def update_priority(
     try:
         priority = PriorityService.update_priority(db, priority_id, priority, current_user.key)
         return PriorityResponse(**priority.to_dict())
+    except IntegrityError as e:
+        if "uq_priority_user_order" in str(e):
+            raise HTTPException(
+                status_code=400, detail=f"Priority order already exists"
+            )
+        elif "uq_priority_user_name" in str(e):
+            raise HTTPException(
+                status_code=400, detail=f"Priority name already exists"
+            )
+        else:
+            raise HTTPException(
+                status_code=500, detail="Internal server error while updating priority"
+            )
     except Exception:
         raise HTTPException(
             status_code=500, detail="Internal server error while updating priority"
@@ -98,6 +125,19 @@ def patch_priority(
 ):
     try:
         priority_id = PriorityService.fetch_priority_id_by_key(db, key, current_user.key)
+    except IntegrityError as e:
+        if "uq_priority_user_order" in str(e):
+            raise HTTPException(
+                status_code=400, detail=f"Priority order already exists"
+            )
+        elif "uq_priority_user_name" in str(e):
+            raise HTTPException(
+                status_code=400, detail=f"Priority name already exists"
+            )
+        else:
+            raise HTTPException(
+                status_code=500, detail="Internal server error while patching priority"
+            )
     except ValueError:
         raise HTTPException(
             status_code=404, detail=f"Priority with key {key} not found"
@@ -133,13 +173,3 @@ def delete_priority(
         raise HTTPException(
             status_code=404, detail=f"Priority with key {key} not found"
         )
-
-
-@router.post("/util/check-availability")
-def check_availability(
-    priority: PriorityCreate, 
-    current_user: Annotated[UserSchema, Depends(get_current_user)], 
-    db: Session = Depends(get_db)
-):
-    available, message = PriorityService.check_availability(db, priority, current_user.key)
-    return {"available": available, "message": message}

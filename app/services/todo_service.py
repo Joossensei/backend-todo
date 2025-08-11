@@ -28,7 +28,9 @@ class TodoService:
     @staticmethod
     def fetch_todo_id_by_key(db: Session, key: str, user_key: str) -> int:
         """Get a todo by its UUID key instead of ID."""
-        db_todos = db.query(Todo).filter(Todo.key == key, Todo.user_key == user_key)
+        db_todos = db.query(Todo).filter(Todo.key == key)
+        if db_todos.first().user_key != user_key:
+            raise ValueError(f"Todo with key {key} not found for user {user_key}")
         if db_todos.count() == 0:
             raise ValueError(f"Todo with key {key} not found")
         if db_todos.count() > 1:
