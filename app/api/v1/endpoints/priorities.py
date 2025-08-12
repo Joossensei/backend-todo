@@ -26,21 +26,26 @@ def get_priorities(
     current_user: Annotated[UserSchema, Depends(get_current_user)],
     db: Session = Depends(get_db),
     page: int = 1,
-    size: int = 10
+    size: int = 10,
 ):
     try:
         skip = (page - 1) * size
         priorities = PriorityService.get_priorities(db, current_user.key, skip, size)
-        total = PriorityService.get_total_priorities(db)
+        total = PriorityService.get_total_priorities(db, current_user.key)
         return PriorityListResponse(
-            priorities=[PriorityResponse(**priority.to_dict()) for priority in priorities],
+            priorities=[
+                PriorityResponse(**priority.to_dict()) for priority in priorities
+            ],
             total=total,
             page=page,
             size=len(priorities),
-            success=True
+            success=True,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error while getting priorities (original error message: {e})")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while getting priorities (original error message: {e})",
+        )
 
 
 @router.get("/{key}")
@@ -50,10 +55,12 @@ def get_priority_by_key(
     response: Response,
     key: str,
     current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     try:
-        priority_id = PriorityService.fetch_priority_id_by_key(db, key, current_user.key)
+        priority_id = PriorityService.fetch_priority_id_by_key(
+            db, key, current_user.key
+        )
         priority = PriorityService.get_priority(db, priority_id, current_user.key)
         return PriorityResponse(**priority.to_dict())
     except ValueError:
@@ -61,7 +68,10 @@ def get_priority_by_key(
             status_code=404, detail=f"Priority with key {key} not found"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error while getting priority by key (original error message: {e})")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while getting priority by key (original error message: {e})",
+        )
 
 
 @router.post("/")
@@ -69,22 +79,18 @@ def get_priority_by_key(
 def create_priority(
     request: Request,
     response: Response,
-    priority: PriorityCreate, 
+    priority: PriorityCreate,
     current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db)    
+    db: Session = Depends(get_db),
 ):
     try:
         priority = PriorityService.create_priority(db, priority, current_user.key)
         return PriorityResponse(**priority.to_dict())
     except IntegrityError as e:
         if "uq_priority_user_order" in str(e):
-            raise HTTPException(
-                status_code=400, detail="Priority order already exists"
-            )
+            raise HTTPException(status_code=400, detail="Priority order already exists")
         elif "uq_priority_user_name" in str(e):
-            raise HTTPException(
-                status_code=400, detail="Priority name already exists"
-            )
+            raise HTTPException(status_code=400, detail="Priority name already exists")
         else:
             raise HTTPException(
                 status_code=500, detail="Internal server error while creating priority"
@@ -92,7 +98,10 @@ def create_priority(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error while creating priority (original error message: {e})")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while creating priority (original error message: {e})",
+        )
 
 
 @router.put("/{key}")
@@ -100,31 +109,34 @@ def create_priority(
 def update_priority(
     request: Request,
     response: Response,
-    key: str, 
-    priority: PriorityUpdate, 
-    current_user: Annotated[UserSchema, Depends(get_current_user)], 
-    db: Session = Depends(get_db)
+    key: str,
+    priority: PriorityUpdate,
+    current_user: Annotated[UserSchema, Depends(get_current_user)],
+    db: Session = Depends(get_db),
 ):
     try:
-        priority_id = PriorityService.fetch_priority_id_by_key(db, key, current_user.key)
+        priority_id = PriorityService.fetch_priority_id_by_key(
+            db, key, current_user.key
+        )
     except ValueError:
         raise HTTPException(
             status_code=404, detail=f"Priority with key {key} not found"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error while updating priority (original error message: {e})")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while updating priority (original error message: {e})",
+        )
     try:
-        priority = PriorityService.update_priority(db, priority_id, priority, current_user.key)
+        priority = PriorityService.update_priority(
+            db, priority_id, priority, current_user.key
+        )
         return PriorityResponse(**priority.to_dict())
     except IntegrityError as e:
         if "uq_priority_user_order" in str(e):
-            raise HTTPException(
-                status_code=400, detail="Priority order already exists"
-            )
+            raise HTTPException(status_code=400, detail="Priority order already exists")
         elif "uq_priority_user_name" in str(e):
-            raise HTTPException(
-                status_code=400, detail="Priority name already exists"
-            )
+            raise HTTPException(status_code=400, detail="Priority name already exists")
         else:
             raise HTTPException(
                 status_code=500, detail="Internal server error while updating priority"
@@ -140,22 +152,20 @@ def update_priority(
 def patch_priority(
     request: Request,
     response: Response,
-    key: str, 
-    priority_patch: dict, 
-    current_user: Annotated[UserSchema, Depends(get_current_user)], 
-    db: Session = Depends(get_db)
+    key: str,
+    priority_patch: dict,
+    current_user: Annotated[UserSchema, Depends(get_current_user)],
+    db: Session = Depends(get_db),
 ):
     try:
-        priority_id = PriorityService.fetch_priority_id_by_key(db, key, current_user.key)
+        priority_id = PriorityService.fetch_priority_id_by_key(
+            db, key, current_user.key
+        )
     except IntegrityError as e:
         if "uq_priority_user_order" in str(e):
-            raise HTTPException(
-                status_code=400, detail="Priority order already exists"
-            )
+            raise HTTPException(status_code=400, detail="Priority order already exists")
         elif "uq_priority_user_name" in str(e):
-            raise HTTPException(
-                status_code=400, detail="Priority name already exists"
-            )
+            raise HTTPException(status_code=400, detail="Priority name already exists")
         else:
             raise HTTPException(
                 status_code=500, detail="Internal server error while patching priority"
@@ -165,7 +175,10 @@ def patch_priority(
             status_code=404, detail=f"Priority with key {key} not found"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error while patching priority (original error message: {e})")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while patching priority (original error message: {e})",
+        )
     try:
         # Only update fields that are provided
         updated_priority = PriorityService.patch_priority(
@@ -183,12 +196,14 @@ def patch_priority(
 def delete_priority(
     request: Request,
     response: Response,
-    key: str, 
-    current_user: Annotated[UserSchema, Depends(get_current_user)], 
-    db: Session = Depends(get_db)
+    key: str,
+    current_user: Annotated[UserSchema, Depends(get_current_user)],
+    db: Session = Depends(get_db),
 ):
     try:
-        priority_id = PriorityService.fetch_priority_id_by_key(db, key, current_user.key)
+        priority_id = PriorityService.fetch_priority_id_by_key(
+            db, key, current_user.key
+        )
         if PriorityService.delete_priority(db, priority_id, current_user.key):
             return {"message": "Priority deleted successfully"}
         else:
@@ -200,4 +215,7 @@ def delete_priority(
             status_code=404, detail=f"Priority with key {key} not found"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error while deleting priority (original error message: {e})")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while deleting priority (original error message: {e})",
+        )

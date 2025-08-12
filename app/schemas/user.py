@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -54,3 +54,23 @@ class User(BaseModel):
 
 class UserInDB(UserInDBBase):
     hashed_password: str
+
+
+class UserResponse(BaseModel):
+    key: str
+    name: str
+    username: str
+    email: EmailStr
+    is_active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class UserListResponse(BaseModel):
+    users: List[UserResponse]
+    total: int
+    page: int
+    size: int
+    success: bool
+    next_link: Optional[str] = None
+    prev_link: Optional[str] = None

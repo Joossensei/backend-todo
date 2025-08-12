@@ -37,3 +37,4 @@ class TodoListResponse(BaseModel):
     size: int
     success: bool
     next_link: Optional[str] = None
+    prev_link: Optional[str] = None

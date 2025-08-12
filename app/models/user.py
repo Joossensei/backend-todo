@@ -17,22 +17,36 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     def __str__(self):
-        return f"User(id={self.id}, name='{self.name}'," \
+        return (
+            f"User(id={self.id}, name='{self.name}',"
             f" email='{self.email}', key='{self.key}', is_active={self.is_active})"
+        )
 
     def __repr__(self):
-        return f"<User(id={self.id}, name='{self.name}'," \
+        return (
+            f"<User(id={self.id}, name='{self.name}',"
             f" email='{self.email}', key='{self.key}', is_active={self.is_active})>"
+        )
 
     def to_dict(self):
         """Convert to dictionary for JSON serialization"""
         return {
-            'id': self.id,
-            'key': self.key,
-            'name': self.name,
-            'email': self.email,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat()
+            "id": self.id,
+            "key": self.key,
+            "name": self.name,
+            "email": self.email,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat(),
+        }
+
+    def model_dump(self):
+        return {
+            "key": self.key,
+            "username": self.username,
+            "name": self.name,
+            "email": self.email,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat(),
         }
 
     def pretty_print(self):
