@@ -42,6 +42,8 @@ def get_priorities(
             success=True,
         )
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while getting priorities (original error message: {e})",
@@ -68,6 +70,8 @@ def get_priority_by_key(
             status_code=404, detail=f"Priority with key {key} not found"
         )
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while getting priority by key (original error message: {e})",
@@ -98,6 +102,8 @@ def create_priority(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while creating priority (original error message: {e})",
@@ -123,6 +129,8 @@ def update_priority(
             status_code=404, detail=f"Priority with key {key} not found"
         )
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while updating priority (original error message: {e})",
@@ -141,7 +149,9 @@ def update_priority(
             raise HTTPException(
                 status_code=500, detail="Internal server error while updating priority"
             )
-    except Exception:
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500, detail="Internal server error while updating priority"
         )
@@ -175,6 +185,8 @@ def patch_priority(
             status_code=404, detail=f"Priority with key {key} not found"
         )
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while patching priority (original error message: {e})",
@@ -185,7 +197,9 @@ def patch_priority(
             db, priority_id, priority_patch, current_user.key
         )
         return PriorityResponse(**updated_priority.to_dict())
-    except Exception:
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500, detail="Internal server error while updating priority"
         )
@@ -215,6 +229,8 @@ def delete_priority(
             status_code=404, detail=f"Priority with key {key} not found"
         )
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while deleting priority (original error message: {e})",

@@ -1,18 +1,19 @@
-from passlib.context import CryptContext
 import jwt
 from app.core.config import settings
+from pwdlib import PasswordHash
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+argon2_hasher = PasswordHash.recommended()
 
 
 class PasswordHasher:
     @staticmethod
     def hash(password: str) -> str:
-        return pwd_context.hash(password)
+        return argon2_hasher.hash(password, salt=bytes(settings.SECRET_KEY, "utf-8"))
 
     @staticmethod
     def verify(plain: str, hashed: str) -> bool:
-        return pwd_context.verify(plain, hashed)
+        return argon2_hasher.verify(plain, hashed)
 
 
 class TokenManager:

@@ -44,4 +44,6 @@ async def login_for_access_token(
                 user_key=user.key
             )
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=500, detail=f"Internal server error while logging in (original error message: {e})")

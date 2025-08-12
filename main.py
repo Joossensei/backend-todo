@@ -41,7 +41,6 @@ async def root(request: Request, response: Response):
 async def health(request: Request, response: Response):
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
-
 app.include_router(
     api_router, prefix=settings.api_v1_str
 )

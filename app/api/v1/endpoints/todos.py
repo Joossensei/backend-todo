@@ -56,6 +56,8 @@ def get_todos(
             prev_link=(f"/todos?page={page - 1}&size={size}" if page > 1 else None),
         )
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while getting todos (original error message: {e})",
@@ -78,6 +80,8 @@ def get_todo_by_key(
     except ValueError:
         raise HTTPException(status_code=404, detail=f"Todo with key {key} not found")
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while getting todo by key (original error message: {e})",
@@ -99,6 +103,8 @@ def create_todo(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while creating todo (original error message: {e})",
@@ -120,6 +126,8 @@ def update_todo(
     except ValueError:
         raise HTTPException(status_code=404, detail=f"Todo with key {key} not found")
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while updating todo (original error message: {e})",
@@ -128,7 +136,9 @@ def update_todo(
     try:
         todo = TodoService.update_todo(db, todo_id, todo, current_user.key)
         return TodoResponse(**todo.to_dict())
-    except Exception:
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500, detail="Internal server error while updating todo"
         )
@@ -155,6 +165,8 @@ def patch_todo(
         else:
             raise HTTPException(status_code=404, detail="Todo not found")
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while patching todo (original error message: {e})",
@@ -164,7 +176,9 @@ def patch_todo(
         # Only update fields that are provided
         updated_todo = TodoService.patch_todo(db, todo_id, todo_patch, current_user.key)
         return TodoResponse(**updated_todo.to_dict())
-    except Exception:
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500, detail="Internal server error while updating todo"
         )
@@ -190,6 +204,8 @@ def delete_todo(
     except ValueError:
         raise HTTPException(status_code=404, detail=f"Todo with key {key} not found")
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while deleting todo (original error message: {e})",

@@ -47,6 +47,8 @@ def read_users(
             prev_link=(f"/users?page={page - 1}&size={size}" if page > 1 else None),
         )
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while getting users (original error message: {e})",
@@ -66,6 +68,8 @@ def read_user(
             raise HTTPException(status_code=404, detail="User not found")
         return UserResponse(**user.model_dump())
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while getting user (original error message: {e})",
@@ -88,6 +92,8 @@ def create_user(
         db_user = UserService.create_user(db, user_in)
         return UserResponse(**db_user.model_dump())
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while creating user (original error message: {e})",
@@ -132,7 +138,6 @@ def update_user(
 
 @router.put(
     "/{key}/password",
-    response_model=UserResponse,
     dependencies=[Depends(get_current_user)],
 )
 @limiter.limit("10/minute;100/hour")
@@ -158,6 +163,8 @@ def update_user_password(
         UserService.update_user_password(db, key, user_in)
         return {"message": "User password updated successfully"}
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while updating user password (original error message: {e})",
@@ -175,7 +182,11 @@ def delete_user(
 ):
     try:
         # Check if the user is the current user
-        current_user = get_current_user(request)
+        current_user = get_current_user(
+            request,
+            request.headers.get("Authorization").split(" ")[1],
+            db,
+        )
         if current_user.key != key:
             raise HTTPException(
                 status_code=403, detail="You are not allowed to delete this user"
@@ -188,6 +199,8 @@ def delete_user(
         db.commit()
         return {"message": "User deleted successfully"}
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error while deleting user (original error message: {e})",

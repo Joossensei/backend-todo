@@ -1,32 +1,31 @@
 # app/core/config.py
-from pydantic import Field
+from pydantic import Field, ConfigDict
 from pydantic_settings import BaseSettings
 from typing import List
 
 
 class Settings(BaseSettings):
     # Database settings
-    database_url: str = Field(..., env="DATABASE_URL")
+    database_url: str = Field(..., json_schema_extra={"env": "DATABASE_URL"})
 
     # Security settings
-    SECRET_KEY: str = Field(..., env="SECRET_KEY")
-    ACCESS_TOKEN_EXPIRE_DAYS: int = Field(30, env="ACCESS_TOKEN_EXPIRE_DAYS")
-    ALGORITHM: str = Field("HS256", env="ALGORITHM")
+    SECRET_KEY: str = Field(..., json_schema_extra={"env": "SECRET_KEY"})
+    ACCESS_TOKEN_EXPIRE_DAYS: int = Field(
+        30, json_schema_extra={"env": "ACCESS_TOKEN_EXPIRE_DAYS"}
+    )
+    ALGORITHM: str = Field("HS256", json_schema_extra={"env": "ALGORITHM"})
 
     # API settings
     api_v1_str: str = "/api/v1"
     project_name: str = "Todo API"
 
     # API
-    debug: bool = Field(False, env="DEBUG")
+    debug: bool = Field(False, json_schema_extra={"env": "DEBUG"})
     backend_cors_origins: List[str] = Field(
-        ["http://localhost:3000"],
-        env="BACKEND_CORS_ORIGINS"
+        ["http://localhost:3000"], json_schema_extra={"env": "BACKEND_CORS_ORIGINS"}
     )
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = ConfigDict(env_file=".env", case_sensitive=False)
 
 
 settings = Settings()
