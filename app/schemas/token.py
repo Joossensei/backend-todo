@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from datetime import datetime
 
 
@@ -7,6 +7,7 @@ class Token(BaseModel):
     token_type: str
     expires_at: datetime
     user_key: str
+
 
 class TokenData(BaseModel):
     username: str | None = None

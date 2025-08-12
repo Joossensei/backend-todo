@@ -1,5 +1,5 @@
 # app/api/v1/endpoints/todos.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from app.database import get_db
 from sqlalchemy.orm import Session
 from app.schemas.priority import (
@@ -13,33 +13,41 @@ from app.api import get_current_user
 from app.schemas.user import User as UserSchema
 from typing import Annotated
 from sqlalchemy.exc import IntegrityError
+from app.core.rate_limit import limiter
 
 router = APIRouter()
 
-# Schema for partial priority update
-
 
 @router.get("/")
+@limiter.limit("10/second;200/minute")
 def get_priorities(
+    request: Request,
+    response: Response,
     current_user: Annotated[UserSchema, Depends(get_current_user)],
     db: Session = Depends(get_db),
     page: int = 1,
     size: int = 10
 ):
-    skip = (page - 1) * size
-    priorities = PriorityService.get_priorities(db, current_user.key, skip, size)
-    total = PriorityService.get_total_priorities(db)
-    return PriorityListResponse(
-        priorities=[PriorityResponse(**priority.to_dict()) for priority in priorities],
-        total=total,
-        page=page,
-        size=len(priorities),
-        success=True,
-    )
+    try:
+        skip = (page - 1) * size
+        priorities = PriorityService.get_priorities(db, current_user.key, skip, size)
+        total = PriorityService.get_total_priorities(db)
+        return PriorityListResponse(
+            priorities=[PriorityResponse(**priority.to_dict()) for priority in priorities],
+            total=total,
+            page=page,
+            size=len(priorities),
+            success=True
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while getting priorities (original error message: {e})")
 
 
 @router.get("/{key}")
+@limiter.limit("20/second;400/minute")
 def get_priority_by_key(
+    request: Request,
+    response: Response,
     key: str,
     current_user: Annotated[UserSchema, Depends(get_current_user)],
     db: Session = Depends(get_db)
@@ -52,10 +60,15 @@ def get_priority_by_key(
         raise HTTPException(
             status_code=404, detail=f"Priority with key {key} not found"
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while getting priority by key (original error message: {e})")
 
 
 @router.post("/")
+@limiter.limit("10/minute;100/hour")
 def create_priority(
+    request: Request,
+    response: Response,
     priority: PriorityCreate, 
     current_user: Annotated[UserSchema, Depends(get_current_user)],
     db: Session = Depends(get_db)    
@@ -66,11 +79,11 @@ def create_priority(
     except IntegrityError as e:
         if "uq_priority_user_order" in str(e):
             raise HTTPException(
-                status_code=400, detail=f"Priority order already exists"
+                status_code=400, detail="Priority order already exists"
             )
         elif "uq_priority_user_name" in str(e):
             raise HTTPException(
-                status_code=400, detail=f"Priority name already exists"
+                status_code=400, detail="Priority name already exists"
             )
         else:
             raise HTTPException(
@@ -78,10 +91,15 @@ def create_priority(
             )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while creating priority (original error message: {e})")
 
 
 @router.put("/{key}")
+@limiter.limit("20/minute;200/hour")
 def update_priority(
+    request: Request,
+    response: Response,
     key: str, 
     priority: PriorityUpdate, 
     current_user: Annotated[UserSchema, Depends(get_current_user)], 
@@ -93,18 +111,19 @@ def update_priority(
         raise HTTPException(
             status_code=404, detail=f"Priority with key {key} not found"
         )
-
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while updating priority (original error message: {e})")
     try:
         priority = PriorityService.update_priority(db, priority_id, priority, current_user.key)
         return PriorityResponse(**priority.to_dict())
     except IntegrityError as e:
         if "uq_priority_user_order" in str(e):
             raise HTTPException(
-                status_code=400, detail=f"Priority order already exists"
+                status_code=400, detail="Priority order already exists"
             )
         elif "uq_priority_user_name" in str(e):
             raise HTTPException(
-                status_code=400, detail=f"Priority name already exists"
+                status_code=400, detail="Priority name already exists"
             )
         else:
             raise HTTPException(
@@ -117,7 +136,10 @@ def update_priority(
 
 
 @router.patch("/{key}")
+@limiter.limit("20/minute;200/hour")
 def patch_priority(
+    request: Request,
+    response: Response,
     key: str, 
     priority_patch: dict, 
     current_user: Annotated[UserSchema, Depends(get_current_user)], 
@@ -128,11 +150,11 @@ def patch_priority(
     except IntegrityError as e:
         if "uq_priority_user_order" in str(e):
             raise HTTPException(
-                status_code=400, detail=f"Priority order already exists"
+                status_code=400, detail="Priority order already exists"
             )
         elif "uq_priority_user_name" in str(e):
             raise HTTPException(
-                status_code=400, detail=f"Priority name already exists"
+                status_code=400, detail="Priority name already exists"
             )
         else:
             raise HTTPException(
@@ -142,7 +164,8 @@ def patch_priority(
         raise HTTPException(
             status_code=404, detail=f"Priority with key {key} not found"
         )
-
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while patching priority (original error message: {e})")
     try:
         # Only update fields that are provided
         updated_priority = PriorityService.patch_priority(
@@ -156,7 +179,10 @@ def patch_priority(
 
 
 @router.delete("/{key}")
+@limiter.limit("10/minute;50/hour")
 def delete_priority(
+    request: Request,
+    response: Response,
     key: str, 
     current_user: Annotated[UserSchema, Depends(get_current_user)], 
     db: Session = Depends(get_db)
@@ -173,3 +199,5 @@ def delete_priority(
         raise HTTPException(
             status_code=404, detail=f"Priority with key {key} not found"
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while deleting priority (original error message: {e})")

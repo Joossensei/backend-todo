@@ -6,10 +6,12 @@ from app.core.security import TokenManager
 from app.models.user import User as UserModel
 from typing import Annotated
 from app.schemas.user import User
+from starlette.requests import Request
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/token")
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+
+def get_current_user(request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = TokenManager.decode(token)
     except Exception:
@@ -18,6 +20,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(UserModel).filter(UserModel.username == username).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    # expose the authenticated user to the request for rate limit keying
+    request.state.user = user
     return user
 
 

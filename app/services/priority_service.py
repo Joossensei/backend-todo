@@ -1,4 +1,4 @@
-# app/services/todo_service.py
+# app/services/priority_service.py
 from sqlalchemy.orm import Session
 from app.models.priority import Priority
 from app.schemas.priority import PriorityCreate, PriorityUpdate

@@ -1,6 +1,5 @@
 # .gitignore
 # Virtual environments
-todo-app-venv/
 venv/
 env/
 .venv/

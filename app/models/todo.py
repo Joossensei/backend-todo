@@ -1,6 +1,6 @@
 # app/models/todo.py
 from sqlalchemy import (Column, Integer, String, Boolean, DateTime, Text,
-                        ForeignKey, UniqueConstraint, Index)
+                        ForeignKey, Index)
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -19,7 +19,7 @@ class Todo(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # Index for user_key        
+    # Index for user_key
     __table_args__ = (
         Index('ix_todo_user_key', 'user_key'),
     )

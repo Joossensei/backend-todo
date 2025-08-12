@@ -17,7 +17,7 @@ class Priority(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # Index and constraints for user_key        
+    # Index and constraints for user_key
     __table_args__ = (
         UniqueConstraint('user_key', 'name', name='uq_priority_user_name'),
         UniqueConstraint('user_key', 'order', name='uq_priority_user_order'),

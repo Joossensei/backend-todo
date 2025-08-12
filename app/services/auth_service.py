@@ -1,8 +1,7 @@
 from app.models.user import User as UserModel
 from datetime import datetime, timedelta, timezone
-import jwt
-from app.core.config import settings
 from app.core.security import PasswordHasher, TokenManager
+
 
 class AuthService:
     @staticmethod
@@ -18,7 +17,6 @@ class AuthService:
         if not PasswordHasher.verify(password, user.hashed_password):
             return False
         return user
-
 
     @staticmethod
     def create_access_token(data: dict, expires_delta: timedelta | None = None):

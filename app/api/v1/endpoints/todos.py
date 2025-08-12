@@ -1,13 +1,13 @@
 # app/api/v1/endpoints/todos.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from app.services.todo_service import TodoService
 from app.database import get_db
 from sqlalchemy.orm import Session
 from app.schemas.todo import TodoCreate, TodoUpdate, TodoResponse, TodoListResponse
-from app.schemas.user import User
 from app.api import get_current_user
 from app.schemas.user import User as UserSchema
 from typing import Annotated
+from app.core.rate_limit import limiter
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
@@ -15,28 +15,37 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 @router.get("/")
+@limiter.limit("10/second;200/minute")
 def get_todos(
+    request: Request,
+    response: Response,
     current_user: Annotated[UserSchema, Depends(get_current_user)],
     db: Session = Depends(get_db), 
     page: int = 1, 
     size: int = 10
 ):
-    skip = (page - 1) * size
-    todos = TodoService.get_todos(db, current_user.key, skip, size)
-    total = TodoService.get_total_todos(db)
-    return TodoListResponse(
-        todos=[TodoResponse(**todo.to_dict()) for todo in todos],
-        total=total,
-        page=page,
-        size=len(todos),
-        success=True,
-    )
+    try:
+        skip = (page - 1) * size
+        todos = TodoService.get_todos(db, current_user.key, skip, size)
+        total = TodoService.get_total_todos(db)
+        return TodoListResponse(
+            todos=[TodoResponse(**todo.to_dict()) for todo in todos],
+            total=total,
+            page=page,
+            size=len(todos),
+            success=True
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while getting todos (original error message: {e})")
 
 
 @router.get("/{key}")
+@limiter.limit("20/second;400/minute")
 def get_todo_by_key(
-    key: str, 
-    current_user: Annotated[UserSchema, Depends(get_current_user)], 
+    request: Request,
+    response: Response,
+    key: str,
+    current_user: Annotated[UserSchema, Depends(get_current_user)],
     db: Session = Depends(get_db)
 ):
     try:
@@ -45,12 +54,17 @@ def get_todo_by_key(
         return TodoResponse(**todo.to_dict())
     except ValueError:
         raise HTTPException(status_code=404, detail=f"Todo with key {key} not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while getting todo by key (original error message: {e})")
 
 
 @router.post("/")
+@limiter.limit("10/minute;100/hour")
 def create_todo(
-    todo: TodoCreate, 
-    current_user: Annotated[UserSchema, Depends(get_current_user)], 
+    request: Request,
+    response: Response,
+    todo: TodoCreate,
+    current_user: Annotated[UserSchema, Depends(get_current_user)],
     db: Session = Depends(get_db)
 ):
     try:
@@ -58,19 +72,26 @@ def create_todo(
         return TodoResponse(**todo.to_dict())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while creating todo (original error message: {e})")
 
 
 @router.put("/{key}")
+@limiter.limit("20/minute;200/hour")
 def update_todo(
-    key: str, 
-    todo: TodoUpdate, 
-    current_user: Annotated[UserSchema, Depends(get_current_user)], 
+    request: Request,
+    response: Response,
+    key: str,
+    todo: TodoUpdate,
+    current_user: Annotated[UserSchema, Depends(get_current_user)],
     db: Session = Depends(get_db)
 ):
     try:
         todo_id = TodoService.fetch_todo_id_by_key(db, key, current_user.key)
     except ValueError:
         raise HTTPException(status_code=404, detail=f"Todo with key {key} not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while updating todo (original error message: {e})")
 
     try:
         todo = TodoService.update_todo(db, todo_id, todo, current_user.key)
@@ -82,7 +103,10 @@ def update_todo(
 
 
 @router.patch("/{key}")
+@limiter.limit("20/minute;200/hour")
 def patch_todo(
+    request: Request,
+    response: Response,
     key: str, 
     todo_patch: dict, 
     current_user: Annotated[UserSchema, Depends(get_current_user)], 
@@ -109,7 +133,10 @@ def patch_todo(
 
 
 @router.delete("/{key}")
+@limiter.limit("10/minute;50/hour")
 def delete_todo(
+    request: Request,
+    response: Response,
     key: str, 
     current_user: Annotated[UserSchema, Depends(get_current_user)], 
     db: Session = Depends(get_db)
@@ -124,3 +151,5 @@ def delete_todo(
             )
     except ValueError:
         raise HTTPException(status_code=404, detail=f"Todo with key {key} not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error while deleting todo (original error message: {e})")

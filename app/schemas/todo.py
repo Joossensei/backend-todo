@@ -3,8 +3,6 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
-# Request schemas (what your API accepts)
-
 
 class TodoCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=100)
@@ -13,13 +11,12 @@ class TodoCreate(BaseModel):
     completed: bool = False
     user_key: str
 
+
 class TodoUpdate(BaseModel):
     title: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
     completed: bool = False
     priority: str = Field(..., min_length=1, max_length=36)
-
-# Response schemas (what your API returns)
 
 
 class TodoResponse(BaseModel):
@@ -31,8 +28,6 @@ class TodoResponse(BaseModel):
     user_key: str
     created_at: datetime
     updated_at: Optional[datetime]
-
-# List response schema
 
 
 class TodoListResponse(BaseModel):

@@ -1,12 +1,21 @@
 import uvicorn
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Request, Response
 from app.api.v1.api import api_router
 from datetime import datetime
 from app.core.config import settings
 from app import __version__
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from app.core.rate_limit import limiter
+
 
 app = FastAPI(title=settings.project_name, version=__version__, debug=settings.debug)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,7 +27,8 @@ app.add_middleware(
 
 
 @app.get("/")
-async def root():
+@limiter.limit("60/minute", key_func=get_remote_address)
+async def root(request: Request, response: Response):
     return {
         "message": "Welcome to Todo API",
         "version": __version__,
@@ -27,7 +37,8 @@ async def root():
 
 
 @app.get("/health")
-async def health():
+@limiter.limit("60/minute", key_func=get_remote_address)
+async def health(request: Request, response: Response):
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
