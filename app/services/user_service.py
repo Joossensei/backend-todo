@@ -25,15 +25,16 @@ class UserService:
         user_key = str(uuid.uuid4())
         user_data = await connection.fetchrow(
             """
-            INSERT INTO users (key, username, email, hashed_password, is_active)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, key, username, email, hashed_password, is_active, created_at, updated_at
+            INSERT INTO users (key, name, username, email, hashed_password, is_active)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, key, name, username, email, hashed_password, is_active, created_at, updated_at
         """,
             user_key,
+            user.name,
             user.username,
             user.email,
             hashed_password,
-            True,
+            user.is_active,
         )
 
         return dict(user_data)

@@ -16,8 +16,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
             data = await request.json()
             user_login = UserLogin(**data)
 
-            pool = await get_db()
-            async with pool.acquire() as connection:
+            async with get_db() as connection:
                 token = await AuthService.authenticate(
                     connection, user_login.username, user_login.password
                 )
@@ -27,7 +26,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
                     )
 
                 return web.json_response(
-                    Token(access_token=token, token_type="bearer").dict()
+                    Token(access_token=token, token_type="bearer").model_dump()
                 )
 
         except Exception as e:

@@ -30,8 +30,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
             current_user = await get_current_active_user(request)
 
             # Get database connection
-            pool = await get_db()
-            async with pool.acquire() as connection:
+            async with get_db() as connection:
                 skip = (page - 1) * size
                 todos = await TodoService.get_todos(
                     connection,
@@ -60,7 +59,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
                         prev_link=(
                             f"/todos?page={page - 1}&size={size}" if page > 1 else None
                         ),
-                    ).dict()
+                    ).model_dump()
                 )
 
         except Exception as e:
@@ -75,8 +74,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
             key = request.match_info["key"]
             current_user = await get_current_active_user(request)
 
-            pool = await get_db()
-            async with pool.acquire() as connection:
+            async with get_db() as connection:
                 todo = await TodoService.get_todo_by_key(
                     connection, key, current_user.key
                 )
@@ -85,7 +83,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
                         {"detail": f"Todo with key {key} not found"}, status=404
                     )
 
-                return web.json_response(TodoResponse(**todo).dict())
+                return web.json_response(TodoResponse(**todo).model_dump())
 
         except Exception as e:
             return web.json_response(
@@ -100,12 +98,11 @@ def setup_routes(app: web.Application, cors, prefix: str):
             data = await request.json()
             todo_create = TodoCreate(**data)
 
-            pool = await get_db()
-            async with pool.acquire() as connection:
+            async with get_db() as connection:
                 todo = await TodoService.create_todo(
                     connection, todo_create, current_user.key
                 )
-                return web.json_response(TodoResponse(**todo).dict(), status=201)
+                return web.json_response(TodoResponse(**todo).model_dump(), status=201)
 
         except ValueError as e:
             return web.json_response({"detail": str(e)}, status=400)
@@ -123,8 +120,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
             data = await request.json()
             todo_update = TodoUpdate(**data)
 
-            pool = await get_db()
-            async with pool.acquire() as connection:
+            async with get_db() as connection:
                 todo = await TodoService.update_todo(
                     connection, key, todo_update, current_user.key
                 )
@@ -133,7 +129,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
                         {"detail": f"Todo with key {key} not found"}, status=404
                     )
 
-                return web.json_response(TodoResponse(**todo).dict())
+                return web.json_response(TodoResponse(**todo).model_dump())
 
         except ValueError as e:
             return web.json_response({"detail": str(e)}, status=400)
@@ -150,8 +146,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
             current_user = await get_current_active_user(request)
             data = await request.json()
 
-            pool = await get_db()
-            async with pool.acquire() as connection:
+            async with get_db() as connection:
                 todo = await TodoService.patch_todo(
                     connection, key, data, current_user.key
                 )
@@ -160,7 +155,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
                         {"detail": f"Todo with key {key} not found"}, status=404
                     )
 
-                return web.json_response(TodoResponse(**todo).dict())
+                return web.json_response(TodoResponse(**todo).model_dump())
 
         except ValueError as e:
             return web.json_response({"detail": str(e)}, status=400)
@@ -176,8 +171,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
             key = request.match_info["key"]
             current_user = await get_current_active_user(request)
 
-            pool = await get_db()
-            async with pool.acquire() as connection:
+            async with get_db() as connection:
                 success = await TodoService.delete_todo(
                     connection, key, current_user.key
                 )

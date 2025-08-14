@@ -1,6 +1,6 @@
 from aiohttp import web
 from app.core.security import TokenManager
-from app.models.user import User as UserModel
+from app.schemas.user import User as UserSchema
 from app.database import get_db
 import json
 
@@ -27,10 +27,7 @@ async def get_current_user_middleware(request: web.Request, handler):
     if not username:
         raise web.HTTPUnauthorized(text=json.dumps({"detail": "Invalid credentials"}))
 
-    # Get database connection
-    pool = await get_db()
-    async with pool.acquire() as connection:
-        # Query user from database
+    async with get_db() as connection:
         user_data = await connection.fetchrow(
             "SELECT * FROM users WHERE username = $1", username
         )
@@ -40,21 +37,8 @@ async def get_current_user_middleware(request: web.Request, handler):
                 text=json.dumps({"detail": "Invalid credentials"})
             )
 
-        # Create user object
-        user = UserModel(
-            id=user_data["id"],
-            key=user_data["key"],
-            username=user_data["username"],
-            email=user_data["email"],
-            hashed_password=user_data["hashed_password"],
-            is_active=user_data["is_active"],
-            created_at=user_data["created_at"],
-            updated_at=user_data["updated_at"],
-        )
-
-        # Add user to request
+        user = UserSchema(**dict(user_data))
         request["user"] = user
-
         return await handler(request)
 
 

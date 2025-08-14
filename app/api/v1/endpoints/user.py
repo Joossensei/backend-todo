@@ -16,10 +16,9 @@ def setup_routes(app: web.Application, cors, prefix: str):
             data = await request.json()
             user_create = UserCreate(**data)
 
-            pool = await get_db()
-            async with pool.acquire() as connection:
+            async with get_db() as connection:
                 user = await UserService.create_user(connection, user_create)
-                return web.json_response(UserResponse(**user).dict(), status=201)
+                return web.json_response(UserResponse(**user).model_dump(), status=201)
 
         except ValueError as e:
             return web.json_response({"detail": str(e)}, status=400)
@@ -33,7 +32,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
         """Get current user information."""
         try:
             current_user = await get_current_active_user(request)
-            return web.json_response(UserResponse(**current_user.__dict__).dict())
+            return web.json_response(UserResponse(**current_user.model_dump()).model_dump())
 
         except Exception as e:
             return web.json_response(

@@ -18,8 +18,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
 
             current_user = await get_current_active_user(request)
 
-            pool = await get_db()
-            async with pool.acquire() as connection:
+            async with get_db() as connection:
                 skip = (page - 1) * size
                 priorities = await PriorityService.get_priorities(
                     connection, current_user.key, skip, size
@@ -47,7 +46,7 @@ def setup_routes(app: web.Application, cors, prefix: str):
                             if page > 1
                             else None
                         ),
-                    ).dict()
+                    ).model_dump()
                 )
 
         except Exception as e:

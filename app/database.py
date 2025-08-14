@@ -1,5 +1,6 @@
 # app/database.py
 import asyncpg
+from contextlib import asynccontextmanager
 from app.core.config import settings
 from typing import Optional
 
@@ -30,8 +31,9 @@ async def close_pool():
         _pool = None
 
 
+@asynccontextmanager
 async def get_db():
-    """Get a database connection from the pool."""
+    """Yield a database connection from the pool."""
     pool = await get_pool()
     async with pool.acquire() as connection:
         yield connection
