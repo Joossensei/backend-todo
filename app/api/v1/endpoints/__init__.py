@@ -1,4 +1,6 @@
-from .todos import router as todos_router
-from .priorities import router as priorities_router
-from .user import router as user_router
-from .token import router as token_router
+"""Endpoint modules for API v1."""
+
+# Export modules to simplify imports elsewhere
+from . import todos, priorities, user, token
+
+__all__ = ["todos", "priorities", "user", "token"]

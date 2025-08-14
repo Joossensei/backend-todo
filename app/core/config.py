@@ -6,10 +6,17 @@ from typing import List
 
 class Settings(BaseSettings):
     # Database settings
-    database_url: str = Field(..., json_schema_extra={"env": "DATABASE_URL"})
+    # Provide sensible defaults so the package can be imported without
+    # relying on environment variables during tests.
+    database_url: str = Field(
+        "postgresql://user:pass@localhost:5432/db",
+        json_schema_extra={"env": "DATABASE_URL"},
+    )
 
     # Security settings
-    SECRET_KEY: str = Field(..., json_schema_extra={"env": "SECRET_KEY"})
+    SECRET_KEY: str = Field(
+        "change-me", json_schema_extra={"env": "SECRET_KEY"}
+    )
     ACCESS_TOKEN_EXPIRE_DAYS: int = Field(
         30, json_schema_extra={"env": "ACCESS_TOKEN_EXPIRE_DAYS"}
     )
