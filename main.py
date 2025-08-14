@@ -1,70 +1,50 @@
-from aiohttp import web
-from aiohttp_cors import setup as cors_setup, ResourceOptions
-from app.api.v1.api import setup_routes
+import uvicorn
+from fastapi import FastAPI, Request, Response
+from app.api.v1.api import api_router
 from datetime import datetime
+from app.core.config import settings
 from app import __version__
-from app.core.rate_limit import RateLimiter
-from app.database import close_pool
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from app.core.rate_limit import limiter
 
 
-async def root_handler(request):
-    """Root endpoint handler."""
-    return web.json_response(
-        {
-            "message": "Welcome to Todo API",
-            "version": __version__,
-            "docs": "/docs",
-        }
-    )
+app = FastAPI(title=settings.project_name, version=__version__, debug=settings.debug)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.backend_cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-async def health_handler(request):
-    """Health check endpoint handler."""
-    return web.json_response(
-        {"status": "healthy", "timestamp": datetime.now().isoformat()}
-    )
+@app.get("/")
+@limiter.limit("60/minute", key_func=get_remote_address)
+async def root(request: Request, response: Response):
+    return {
+        "message": "Welcome to Todo API",
+        "version": __version__,
+        "docs": "/docs",
+    }
 
 
-def create_app():
-    """Create and configure the AIOHTTP application."""
-    app = web.Application()
+@app.get("/health")
+@limiter.limit("60/minute", key_func=get_remote_address)
+async def health(request: Request, response: Response):
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
-    # Setup CORS
-    cors = cors_setup(
-        app,
-        defaults={
-            "*": ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_headers="*",
-                allow_methods="*",
-            )
-        },
-    )
-
-    # Setup rate limiter
-    rate_limiter = RateLimiter()
-    app["rate_limiter"] = rate_limiter
-
-    # Add middleware for rate limiting
-    app.middlewares.append(rate_limiter.middleware)
-
-    # Setup routes
-    app.router.add_get("/", root_handler)
-    app.router.add_get("/health", health_handler)
-
-    # Setup API routes
-    setup_routes(app, cors)
-
-    # Setup cleanup on shutdown
-    async def cleanup(app):
-        await close_pool()
-
-    app.on_cleanup.append(cleanup)
-
-    return app
+app.include_router(
+    api_router, prefix=settings.api_v1_str
+)
 
 
 if __name__ == "__main__":
-    app = create_app()
-    web.run_app(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

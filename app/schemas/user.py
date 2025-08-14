@@ -29,11 +29,6 @@ class UserUpdatePassword(BaseModel):
     password: str
 
 
-class UserLogin(BaseModel):
-    username: str
-    password: str
-
-
 class UserInDBBase(UserBase):
     id: int
     key: str

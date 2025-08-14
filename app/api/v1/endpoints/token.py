@@ -1,44 +1,49 @@
-# app/api/v1/endpoints/token.py
-from aiohttp import web
-from app.services.auth_service import AuthService
+from fastapi import Depends, HTTPException, status, Request, Response
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from app.schemas import Token
+from typing import Annotated
+from fastapi import APIRouter
+from datetime import datetime, timedelta, timezone
+from app.core.config import settings
 from app.database import get_db
-from app.schemas.token import Token
-from app.schemas.user import UserLogin
+from sqlalchemy.orm import Session
+from app.services import AuthService
+from app.core.rate_limit import limiter
+from slowapi.util import get_remote_address
+
+router = APIRouter()
 
 
-def setup_routes(app: web.Application, cors, prefix: str):
-    """Setup token routes."""
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/token")
 
-    # Login endpoint
-    async def login_handler(request: web.Request):
-        """Login and get access token."""
-        try:
-            data = await request.json()
-            user_login = UserLogin(**data)
 
-            pool = await get_db()
-            async with pool.acquire() as connection:
-                token = await AuthService.authenticate(
-                    connection, user_login.username, user_login.password
-                )
-                if not token:
-                    return web.json_response(
-                        {"detail": "Incorrect username or password"}, status=401
-                    )
-
-                return web.json_response(
-                    Token(access_token=token, token_type="bearer").dict()
-                )
-
-        except Exception as e:
-            return web.json_response(
-                {"detail": f"Internal server error: {str(e)}"}, status=500
+@router.post("/token")
+@limiter.limit("5/minute;100/hour", key_func=get_remote_address)
+async def login_for_access_token(
+    request: Request,
+    response: Response,
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    db: Session = Depends(get_db),
+) -> Token:
+    try:
+        user = AuthService.authenticate_user(db, form_data.username, form_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
             )
-
-    # Add routes
-    app.router.add_post(f"{prefix}/token", login_handler)
-
-    # Setup CORS for all routes
-    for route in app.router.routes():
-        if route.resource.canonical.startswith(f"{prefix}/token"):
-            cors.add(route)
+        access_token_expires = timedelta(days=settings.ACCESS_TOKEN_EXPIRE_DAYS)
+        access_token = AuthService.create_access_token(
+            data={"sub": user.username}, expires_delta=access_token_expires
+        )
+        return Token(
+                access_token=access_token,
+                token_type="bearer",
+                expires_at=datetime.now(timezone.utc) + timedelta(days=settings.ACCESS_TOKEN_EXPIRE_DAYS),
+                user_key=user.key
+            )
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Internal server error while logging in (original error message: {e})")

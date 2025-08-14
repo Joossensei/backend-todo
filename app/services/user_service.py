@@ -1,65 +1,82 @@
-import asyncpg
-from app.schemas.user import UserCreate
-from app.core.security import TokenManager
+from app.models.user import User as UserModel
+from app.core.security import PasswordHasher
+from app.schemas.user import UserCreate, UserUpdate, UserUpdatePassword
+from sqlalchemy.orm import Session
 import uuid
-from typing import Optional, Dict, Any
 
 
 class UserService:
     @staticmethod
-    async def create_user(
-        connection: asyncpg.Connection, user: UserCreate
-    ) -> Dict[str, Any]:
-        """Create a new user."""
-        # Check if username already exists
-        existing_user = await connection.fetchrow(
-            "SELECT id FROM users WHERE username = $1", user.username
-        )
-        if existing_user:
-            raise ValueError("Username already exists")
-
-        # Hash password
-        hashed_password = TokenManager.hash_password(user.password)
-
-        # Create user
-        user_key = str(uuid.uuid4())
-        user_data = await connection.fetchrow(
-            """
-            INSERT INTO users (key, username, email, hashed_password, is_active)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, key, username, email, hashed_password, is_active, created_at, updated_at
-        """,
-            user_key,
-            user.username,
-            user.email,
-            hashed_password,
-            True,
-        )
-
-        return dict(user_data)
+    def get_users(db: Session, skip: int = 0, limit: int = 10):
+        return db.query(UserModel).offset(skip).limit(limit).all()
 
     @staticmethod
-    async def get_user_by_username(
-        connection: asyncpg.Connection, username: str
-    ) -> Optional[Dict[str, Any]]:
-        """Get user by username."""
-        user_data = await connection.fetchrow(
-            "SELECT * FROM users WHERE username = $1", username
-        )
-
-        if not user_data:
-            return None
-
-        return dict(user_data)
+    def get_user_by_key(db: Session, key: str):
+        return db.query(UserModel).filter(UserModel.key == key).first()
 
     @staticmethod
-    async def get_user_by_key(
-        connection: asyncpg.Connection, key: str
-    ) -> Optional[Dict[str, Any]]:
-        """Get user by key."""
-        user_data = await connection.fetchrow("SELECT * FROM users WHERE key = $1", key)
+    def get_user_by_email(db: Session, email: str):
+        return db.query(UserModel).filter(UserModel.email == email).first()
 
-        if not user_data:
-            return None
+    @staticmethod
+    def get_user_by_username(db: Session, username: str):
+        return db.query(UserModel).filter(UserModel.username == username).first()
 
-        return dict(user_data)
+    @staticmethod
+    def create_user(db: Session, user: UserCreate):
+        if UserService.get_user_by_username(db, user.username):
+            raise ValueError(f"User with username {user.username} already exists")
+        if UserService.get_user_by_email(db, user.email):
+            raise ValueError(f"User with email {user.email} already exists")
+        db_user = UserModel(
+            key=str(uuid.uuid4()),
+            name=user.name,
+            username=user.username,
+            email=user.email,
+            hashed_password=PasswordHasher.hash(user.password),
+            is_active=user.is_active,
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+
+    @staticmethod
+    def update_user(db: Session, key: str, user: UserUpdate):
+        db_user = UserService.get_user_by_key(db, key)
+        if not db_user:
+            raise ValueError(f"User with key {key} not found")
+        if user.name is not None:
+            db_user.name = user.name
+        if user.email is not None:
+            db_user.email = user.email
+        if user.is_active is not None:
+            db_user.is_active = user.is_active
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+
+    @staticmethod
+    def delete_user(db: Session, key: str):
+        db_user = UserService.get_user_by_key(db, key)
+        if not db_user:
+            raise ValueError(f"User with key {key} not found")
+        db.delete(db_user)
+        db.commit()
+        return True
+
+    @staticmethod
+    def get_total_users(db: Session):
+        return db.query(UserModel).count()
+
+    @staticmethod
+    def update_user_password(db: Session, key: str, user: UserUpdatePassword):
+        db_user = UserService.get_user_by_key(db, key)
+        if not db_user:
+            raise ValueError(f"User with key {key} not found")
+        if not PasswordHasher.verify(user.current_password, db_user.hashed_password):
+            raise ValueError("Current password is incorrect")
+        db_user.hashed_password = PasswordHasher.hash(user.password)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
