@@ -1,11 +1,23 @@
 # app/api/v1/api.py
-from fastapi import APIRouter, Depends
+from aiohttp import web
 from app.api.v1.endpoints import todos, priorities, token, user
-from app.api import get_current_user
+from app.api import get_current_user_middleware
 
-api_router = APIRouter()
-api_router.include_router(todos.router, prefix="/todos", tags=["todos"], dependencies=[Depends(get_current_user)])
-api_router.include_router(priorities.router,
-                          prefix="/priorities", tags=["priorities"], dependencies=[Depends(get_current_user)])
-api_router.include_router(token.router, tags=["token"])
-api_router.include_router(user.router, prefix="/users", tags=["users"])
+
+def setup_routes(app: web.Application, cors):
+    """Setup all API routes for AIOHTTP."""
+
+    # Add authentication middleware
+    app.middlewares.append(get_current_user_middleware)
+
+    # Setup todos routes
+    todos.setup_routes(app, cors, "/api/v1/todos")
+
+    # Setup priorities routes
+    priorities.setup_routes(app, cors, "/api/v1/priorities")
+
+    # Setup token routes
+    token.setup_routes(app, cors, "/api/v1")
+
+    # Setup user routes
+    user.setup_routes(app, cors, "/api/v1/users")

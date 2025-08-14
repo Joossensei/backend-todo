@@ -1,25 +1,37 @@
 # app/database.py
-from sqlalchemy import create_engine
-from sqlalchemy.orm.decl_api import declarative_base
-from sqlalchemy.orm import sessionmaker
+import asyncpg
 from app.core.config import settings
+from typing import Optional
+
+# Global connection pool
+_pool: Optional[asyncpg.Pool] = None
 
 
-# Create database engine
-engine = create_engine(settings.database_url)
+async def get_pool() -> asyncpg.Pool:
+    """Get the database connection pool."""
+    global _pool
+    if _pool is None:
+        # Convert SQLAlchemy URL to asyncpg format
+        url = settings.database_url
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgres://")
 
-# Create SessionLocal class
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create Base class for models
-Base = declarative_base()
-
-# Dependency to get database session
+        _pool = await asyncpg.create_pool(
+            url, min_size=5, max_size=20, command_timeout=60
+        )
+    return _pool
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def close_pool():
+    """Close the database connection pool."""
+    global _pool
+    if _pool:
+        await _pool.close()
+        _pool = None
+
+
+async def get_db():
+    """Get a database connection from the pool."""
+    pool = await get_pool()
+    async with pool.acquire() as connection:
+        yield connection

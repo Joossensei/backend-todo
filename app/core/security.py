@@ -24,3 +24,26 @@ class TokenManager:
     @staticmethod
     def decode(token: str) -> dict:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+
+    @staticmethod
+    def hash_password(password: str) -> str:
+        return PasswordHasher.hash(password)
+
+    @staticmethod
+    def verify_password(plain: str, hashed: str) -> bool:
+        return PasswordHasher.verify(plain, hashed)
+
+    @staticmethod
+    def create_access_token(data: dict, expires_delta=None):
+        to_encode = data.copy()
+        if expires_delta:
+            from datetime import datetime, timedelta, timezone
+
+            expire = datetime.now(timezone.utc) + expires_delta
+        else:
+            from datetime import datetime, timedelta, timezone
+
+            expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+        to_encode.update({"exp": expire})
+        encoded_jwt = TokenManager.encode(to_encode)
+        return encoded_jwt
