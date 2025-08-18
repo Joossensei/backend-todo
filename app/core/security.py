@@ -19,8 +19,25 @@ class PasswordHasher:
 class TokenManager:
     @staticmethod
     def encode(payload: dict) -> str:
-        return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        payload = {
+            **payload,
+            "aud": settings.JWT_AUDIENCE,
+            "iss": settings.JWT_ISSUER,
+        }
+        return jwt.encode(
+            payload,
+            settings.SECRET_KEY,
+            algorithm=settings.ALGORITHM,
+        )
 
     @staticmethod
     def decode(token: str) -> dict:
-        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            audience=settings.JWT_AUDIENCE,
+            issuer=settings.JWT_ISSUER,
+            leeway=settings.JWT_LEEWAY,
+            options={"require": ["exp", "iss", "aud"]},
+        )

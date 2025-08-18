@@ -1,11 +1,32 @@
-# app/api/v1/api.py
-from fastapi import APIRouter, Depends
-from app.api.v1.endpoints import todos, priorities, token, user
-from app.api import get_current_user
+"""
+API v1 module.
 
-api_router = APIRouter()
-api_router.include_router(todos.router, prefix="/todos", tags=["todos"], dependencies=[Depends(get_current_user)])
-api_router.include_router(priorities.router,
-                          prefix="/priorities", tags=["priorities"], dependencies=[Depends(get_current_user)])
-api_router.include_router(token.router, tags=["token"])
-api_router.include_router(user.router, prefix="/users", tags=["users"])
+This module provides the main API interface for version 1 of the Todo API.
+It uses the route manager to register all routes in a clean, organized way.
+"""
+
+from aiohttp import web
+from .route_manager import register_all_routes
+
+
+def apply_endpoints(routes: web.RouteTableDef):
+    """
+    Apply all API v1 endpoints to the given route table.
+
+    This function is kept for backward compatibility but now delegates
+    to the route manager for better organization.
+
+    Args:
+        routes: The route table to register endpoints with
+
+    Returns:
+        The route table with all endpoints registered
+    """
+    # Get all routes from the route manager
+    all_routes = register_all_routes()
+
+    # Copy all routes to the provided route table
+    for route in all_routes:
+        routes._items.append(route)
+
+    return routes

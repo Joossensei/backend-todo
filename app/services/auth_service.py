@@ -1,24 +1,29 @@
-from app.models.user import User as UserModel
 from datetime import datetime, timedelta, timezone
 from app.core.security import PasswordHasher, TokenManager
+import asyncpg
 
 
 class AuthService:
     @staticmethod
-    def get_user(db, username: str):
-        user = db.query(UserModel).filter(UserModel.username == username).first()
+    async def get_user(conn: asyncpg.Connection, username: str):
+        user = await conn.fetchrow(
+            """
+            SELECT u.*
+            FROM users u
+            WHERE u.username = $1
+            """,
+            username,
+        )
         return user
 
-    @staticmethod
-    def authenticate_user(db, username: str, password: str):
-        user = AuthService.get_user(db, username)
+    async def authenticate_user(conn: asyncpg.Connection, username: str, password: str):
+        user = await AuthService.get_user(conn, username)
         if not user:
             return False
-        if not PasswordHasher.verify(password, user.hashed_password):
+        if not PasswordHasher.verify(password, user["hashed_password"]):
             return False
         return user
 
-    @staticmethod
     def create_access_token(data: dict, expires_delta: timedelta | None = None):
         to_encode = data.copy()
         if expires_delta:

@@ -14,6 +14,11 @@ class Settings(BaseSettings):
         30, json_schema_extra={"env": "ACCESS_TOKEN_EXPIRE_DAYS"}
     )
     ALGORITHM: str = Field("HS256", json_schema_extra={"env": "ALGORITHM"})
+    JWT_ISSUER: str = Field("todo-api", json_schema_extra={"env": "JWT_ISSUER"})
+    JWT_AUDIENCE: str = Field(
+        "todo-api-client", json_schema_extra={"env": "JWT_AUDIENCE"}
+    )
+    JWT_LEEWAY: int = Field(60, json_schema_extra={"env": "JWT_LEEWAY"})
 
     # API settings
     api_v1_str: str = "/api/v1"

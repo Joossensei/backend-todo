@@ -1,237 +1,264 @@
 # app/api/v1/endpoints/todos.py
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from app.database import get_db
-from sqlalchemy.orm import Session
-from app.schemas.priority import (
-    PriorityCreate,
-    PriorityUpdate,
-    PriorityResponse,
-    PriorityListResponse,
-)
+from aiohttp import web
 from app.services.priority_service import PriorityService
-from app.api import get_current_user
-from app.schemas.user import User as UserSchema
-from typing import Annotated
-from sqlalchemy.exc import IntegrityError
-from app.core.rate_limit import limiter
-
-router = APIRouter()
+from app.services.auth_service import AuthService
 
 
-@router.get("/")
-@limiter.limit("10/second;200/minute")
-def get_priorities(
-    request: Request,
-    response: Response,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-    page: int = 1,
-    size: int = 10,
-):
+async def get_priorities(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    page = request.query.get("page", 1)
+    size = request.query.get("size", 10)
     try:
         skip = (page - 1) * size
-        priorities = PriorityService.get_priorities(db, current_user.key, skip, size)
-        total = PriorityService.get_total_priorities(db, current_user.key)
-        return PriorityListResponse(
-            priorities=[
-                PriorityResponse(**priority.to_dict()) for priority in priorities
-            ],
-            total=total,
-            page=page,
-            size=len(priorities),
-            success=True,
+        priorities = await PriorityService.get_priorities(
+            db, current_user["key"], skip, size
         )
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while getting priorities (original error message: {e})",
-        )
-
-
-@router.get("/{key}")
-@limiter.limit("20/second;400/minute")
-def get_priority_by_key(
-    request: Request,
-    response: Response,
-    key: str,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-):
-    try:
-        priority_id = PriorityService.fetch_priority_id_by_key(
-            db, key, current_user.key
-        )
-        priority = PriorityService.get_priority(db, priority_id, current_user.key)
-        return PriorityResponse(**priority.to_dict())
-    except ValueError:
-        raise HTTPException(
-            status_code=404, detail=f"Priority with key {key} not found"
-        )
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while getting priority by key (original error message: {e})",
-        )
-
-
-@router.post("/")
-@limiter.limit("10/minute;100/hour")
-def create_priority(
-    request: Request,
-    response: Response,
-    priority: PriorityCreate,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-):
-    try:
-        priority = PriorityService.create_priority(db, priority, current_user.key)
-        return PriorityResponse(**priority.to_dict())
-    except IntegrityError as e:
-        if "uq_priority_user_order" in str(e):
-            raise HTTPException(status_code=400, detail="Priority order already exists")
-        elif "uq_priority_user_name" in str(e):
-            raise HTTPException(status_code=400, detail="Priority name already exists")
-        else:
-            raise HTTPException(
-                status_code=500, detail="Internal server error while creating priority"
+        total = await PriorityService.get_total_priorities(db, current_user["key"])
+        resp = []
+        for priority in priorities:
+            resp.append(
+                {
+                    "key": priority["key"],
+                    "name": priority["name"],
+                    "description": priority["description"],
+                    "color": priority["color"],
+                    "icon": priority["icon"],
+                    "order": priority["order"],
+                    "user_key": priority["user_key"],
+                    "created_at": priority["created_at"].isoformat(),
+                    "updated_at": (
+                        priority["updated_at"].isoformat()
+                        if priority["updated_at"]
+                        else None
+                    ),
+                }
             )
+        return web.json_response(
+            {
+                "priorities": resp,
+                "total": total,
+                "page": page,
+                "size": size,
+                "success": True,
+                "next_link": (
+                    f"/api/v1/priorities?page={page + 1}&size={size}"
+                    if page * size < total
+                    else None
+                ),
+                "prev_link": (
+                    f"/api/v1/priorities?page={page - 1}&size={size}"
+                    if page > 1
+                    else None
+                ),
+            }
+        )
+    except Exception as e:
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while getting priorities (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
+
+async def get_priority_by_key(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    key = request.match_info["key"]
+    try:
+        priority_id = await PriorityService.fetch_priority_id_by_key(
+            db, key, current_user["key"]
+        )
+        priority = await PriorityService.get_priority(
+            db, priority_id, current_user["key"]
+        )
+        return web.json_response(
+            {
+                "key": priority["key"],
+                "name": priority["name"],
+                "description": priority["description"],
+                "color": priority["color"],
+                "icon": priority["icon"],
+                "order": priority["order"],
+                "user_key": priority["user_key"],
+                "created_at": priority["created_at"].isoformat(),
+                "updated_at": (
+                    priority["updated_at"].isoformat()
+                    if priority["updated_at"]
+                    else None
+                ),
+                "success": True,
+            }
+        )
+    except ValueError:
+        raise web.HTTPNotFound(text=f"Priority with key {key} not found")
+    except Exception as e:
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while getting priority by key (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
+
+async def create_priority(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    priority = await request.json()
+    try:
+        priority = await PriorityService.create_priority(
+            db, priority, current_user["key"]
+        )
+        print(priority)
+        return web.json_response(
+            {
+                "key": priority["key"],
+                "name": priority["name"],
+                "description": priority["description"],
+                "color": priority["color"],
+                "icon": priority["icon"],
+                "order": priority["order"],
+                "user_key": priority["user_key"],
+                "created_at": priority["created_at"].isoformat(),
+                "success": True,
+            }
+        )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise web.HTTPBadRequest(text=str(e))
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while creating priority (original error message: {e})",
+        print(e.with_traceback(e.__traceback__))
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while creating priority (original error message: {e.with_traceback(e.__traceback__)})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
 
 
-@router.put("/{key}")
-@limiter.limit("20/minute;200/hour")
-def update_priority(
-    request: Request,
-    response: Response,
-    key: str,
-    priority: PriorityUpdate,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-):
+async def update_priority(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    key = request.match_info["key"]
+    priority = await request.json()
     try:
-        priority_id = PriorityService.fetch_priority_id_by_key(
-            db, key, current_user.key
+        priority_id = await PriorityService.fetch_priority_id_by_key(
+            db, key, current_user["key"]
         )
     except ValueError:
-        raise HTTPException(
-            status_code=404, detail=f"Priority with key {key} not found"
-        )
+        raise web.HTTPNotFound(text=f"Priority with key {key} not found")
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while updating priority (original error message: {e})",
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while updating priority (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
     try:
-        priority = PriorityService.update_priority(
-            db, priority_id, priority, current_user.key
+        priority = await PriorityService.update_priority(
+            db, priority_id, priority, current_user["key"]
         )
-        return PriorityResponse(**priority.to_dict())
-    except IntegrityError as e:
-        if "uq_priority_user_order" in str(e):
-            raise HTTPException(status_code=400, detail="Priority order already exists")
-        elif "uq_priority_user_name" in str(e):
-            raise HTTPException(status_code=400, detail="Priority name already exists")
-        else:
-            raise HTTPException(
-                status_code=500, detail="Internal server error while updating priority"
-            )
+        return web.json_response(
+            {
+                "key": priority["key"],
+                "name": priority["name"],
+                "description": priority["description"],
+                "color": priority["color"],
+                "icon": priority["icon"],
+                "order": priority["order"],
+                "user_key": priority["user_key"],
+                "created_at": priority["created_at"].isoformat(),
+                "updated_at": (
+                    priority["updated_at"].isoformat()
+                    if priority["updated_at"]
+                    else None
+                ),
+                "success": True,
+            }
+        )
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500, detail="Internal server error while updating priority"
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while updating priority (original error message: {e})",
         )
 
 
-@router.patch("/{key}")
-@limiter.limit("20/minute;200/hour")
-def patch_priority(
-    request: Request,
-    response: Response,
-    key: str,
-    priority_patch: dict,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-):
+async def patch_priority(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    key = request.match_info["key"]
+    priority_patch = await request.json()
     try:
-        priority_id = PriorityService.fetch_priority_id_by_key(
-            db, key, current_user.key
+        priority_id = await PriorityService.fetch_priority_id_by_key(
+            db, key, current_user["key"]
         )
-    except IntegrityError as e:
-        if "uq_priority_user_order" in str(e):
-            raise HTTPException(status_code=400, detail="Priority order already exists")
-        elif "uq_priority_user_name" in str(e):
-            raise HTTPException(status_code=400, detail="Priority name already exists")
-        else:
-            raise HTTPException(
-                status_code=500, detail="Internal server error while patching priority"
-            )
     except ValueError:
-        raise HTTPException(
-            status_code=404, detail=f"Priority with key {key} not found"
-        )
+        raise web.HTTPNotFound(text=f"Priority with key {key} not found")
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while patching priority (original error message: {e})",
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while patching priority (original error message: {e})",
         )
     try:
         # Only update fields that are provided
-        updated_priority = PriorityService.patch_priority(
-            db, priority_id, priority_patch, current_user.key
+        updated_priority = await PriorityService.patch_priority(
+            db, priority_id, priority_patch, current_user["key"]
         )
-        return PriorityResponse(**updated_priority.to_dict())
+        return web.json_response(
+            {
+                "key": updated_priority["key"],
+                "name": updated_priority["name"],
+                "description": updated_priority["description"],
+                "color": updated_priority["color"],
+                "icon": updated_priority["icon"],
+                "order": updated_priority["order"],
+                "user_key": updated_priority["user_key"],
+                "created_at": updated_priority["created_at"].isoformat(),
+                "updated_at": updated_priority["updated_at"].isoformat(),
+                "success": True,
+            }
+        )
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500, detail="Internal server error while updating priority"
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while updating priority (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
 
 
-@router.delete("/{key}")
-@limiter.limit("10/minute;50/hour")
-def delete_priority(
-    request: Request,
-    response: Response,
-    key: str,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-):
+async def delete_priority(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    key = request.match_info["key"]
     try:
-        priority_id = PriorityService.fetch_priority_id_by_key(
-            db, key, current_user.key
+        priority_id = await PriorityService.fetch_priority_id_by_key(
+            db, key, current_user["key"]
         )
-        if PriorityService.delete_priority(db, priority_id, current_user.key):
-            return {"message": "Priority deleted successfully"}
+        if await PriorityService.delete_priority(db, priority_id, current_user["key"]):
+            return web.json_response(
+                {"message": "Priority deleted successfully", "success": True}
+            )
         else:
-            raise HTTPException(
-                status_code=500, detail="Internal server error while deleting priority"
+            raise web.HTTPInternalServerError(
+                text="Internal server error while deleting priority"
             )
     except ValueError:
-        raise HTTPException(
-            status_code=404, detail=f"Priority with key {key} not found"
-        )
+        raise web.HTTPNotFound(text=f"Priority with key {key} not found")
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while deleting priority (original error message: {e})",
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while deleting priority (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )

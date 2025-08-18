@@ -1,10 +1,8 @@
 from aiohttp import web
-from db.services.auth_service import AuthService
-from main_aiohttp import routes
-from db.services.user_service import UserService
+from app.services.auth_service import AuthService
+from app.services.user_service import UserService
 
 
-@routes.get("/api/v1/users")
 async def read_users(request: web.Request):
     db = request["conn"]
     page = int(request.query.get("page", 1))
@@ -58,9 +56,6 @@ async def read_users(request: web.Request):
         )
 
 
-@routes.get(
-    "/api/v1/users/{key}",
-)
 async def read_user(request: web.Request):
     db = request["conn"]
     key = request.match_info["key"]
@@ -90,7 +85,6 @@ async def read_user(request: web.Request):
         )
 
 
-@routes.post("/api/v1/users")
 async def create_user(request: web.Request):
     db = request["conn"]
     user_in = await request.json()
@@ -119,9 +113,6 @@ async def create_user(request: web.Request):
         )
 
 
-@routes.put(
-    "/api/v1/users/{key}",
-)
 async def update_user(
     request: web.Request,
     key: str,
@@ -153,9 +144,6 @@ async def update_user(
         )
 
 
-@routes.put(
-    "/api/v1/users/{key}/password",
-)
 async def update_user_password(
     request: web.Request,
     key: str,
@@ -188,9 +176,6 @@ async def update_user_password(
         )
 
 
-@routes.delete(
-    "/api/v1/users/{key}",
-)
 async def delete_user(
     request: web.Request,
     key: str,

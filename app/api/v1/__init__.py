@@ -1,1 +1,1 @@
-from .endpoints import todos, priorities
+from .api import apply_endpoints

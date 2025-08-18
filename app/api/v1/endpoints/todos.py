@@ -1,212 +1,329 @@
-# app/api/v1/endpoints/todos.py
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from aiohttp import web
 from app.services.todo_service import TodoService
-from app.database import get_db
-from sqlalchemy.orm import Session
-from app.schemas.todo import TodoCreate, TodoUpdate, TodoResponse, TodoListResponse
-from app.api import get_current_user
-from app.schemas.user import User as UserSchema
-from typing import Annotated, Optional
-from app.core.rate_limit import limiter
-
-router = APIRouter(dependencies=[Depends(get_current_user)])
-
-# Schema for partial priority update
-
-# Query Parameters
-# - page: int
-# - size: int
-# - sort: str (possible values: priority-desc, priority-desc-text-asc, incomplete-priority-desc, text-asc and text-desc)
-# - completed: bool (possible values: true, false)
-# - priority: str (possible values: priority key)
-# - search: str
+from app.services.auth_service import AuthService
 
 
-@router.get("/")
-@limiter.limit("10/second;200/minute")
-def get_todos(
-    request: Request,
-    response: Response,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-    page: int = 1,
-    size: int = 10,
-    sort: str = "incomplete-priority-desc",
-    completed: Optional[bool] = None,
-    priority: Optional[str] = None,
-    search: Optional[str] = None,
-):
-    if size > 100:
-        raise HTTPException(status_code=400, detail="Size cannot be greater than 100")
+async def get_todos(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    page = int(request.query.get("page", 1))
+    size = int(request.query.get("size", 10))
+    skip = (page - 1) * size
+    sort = request.query.get("sort", "incomplete-priority-desc")
+    completed = request.query.get("completed")
+    if completed is not None:
+        completed = completed.lower() == "true"
+    priority = request.query.get("priority")
+    search = request.query.get("search")
     try:
-        skip = (page - 1) * size
-        todos = TodoService.get_todos(
-            db, current_user.key, skip, size, sort, completed, priority, search
+        todos = await TodoService.get_todos(
+            db,
+            current_user["key"],
+            skip=skip,
+            limit=size,
+            sort=sort,
+            completed=completed,
+            priority=priority,
+            search=search,
         )
-        total = TodoService.get_total_todos(db, current_user.key)
-        return TodoListResponse(
-            todos=[TodoResponse(**todo.to_dict()) for todo in todos],
-            total=total,
-            page=page,
-            size=len(todos),
-            success=True,
-            next_link=(
-                f"/todos?page={page + 1}&size={size}" if page * size < total else None
-            ),
-            prev_link=(f"/todos?page={page - 1}&size={size}" if page > 1 else None),
-        )
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while getting todos (original error message: {e})",
-        )
-
-
-@router.get("/{key}")
-@limiter.limit("20/second;400/minute")
-def get_todo_by_key(
-    request: Request,
-    response: Response,
-    key: str,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-):
-    try:
-        todo_id = TodoService.fetch_todo_id_by_key(db, key, current_user.key)
-        todo = TodoService.get_todo(db, todo_id, current_user.key)
-        return TodoResponse(**todo.to_dict())
-    except ValueError:
-        raise HTTPException(status_code=404, detail=f"Todo with key {key} not found")
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while getting todo by key (original error message: {e})",
-        )
-
-
-@router.post("/")
-@limiter.limit("10/minute;100/hour")
-def create_todo(
-    request: Request,
-    response: Response,
-    todo: TodoCreate,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-):
-    try:
-        todo = TodoService.create_todo(db, todo, current_user.key)
-        return TodoResponse(**todo.to_dict())
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while creating todo (original error message: {e})",
-        )
-
-
-@router.put("/{key}")
-@limiter.limit("20/minute;200/hour")
-def update_todo(
-    request: Request,
-    response: Response,
-    key: str,
-    todo: TodoUpdate,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-):
-    try:
-        todo_id = TodoService.fetch_todo_id_by_key(db, key, current_user.key)
-    except ValueError:
-        raise HTTPException(status_code=404, detail=f"Todo with key {key} not found")
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while updating todo (original error message: {e})",
-        )
-
-    try:
-        todo = TodoService.update_todo(db, todo_id, todo, current_user.key)
-        return TodoResponse(**todo.to_dict())
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500, detail="Internal server error while updating todo"
-        )
-
-
-@router.patch("/{key}")
-@limiter.limit("20/minute;200/hour")
-def patch_todo(
-    request: Request,
-    response: Response,
-    key: str,
-    todo_patch: dict,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-):
-    try:
-        todo_id = TodoService.fetch_todo_id_by_key(db, key, current_user.key)
-    except ValueError as e:
-        if current_user.key in str(e):
-            raise HTTPException(
-                status_code=404,
-                detail=f"Todo with key {key} not found for user {current_user.key}",
+        total = await TodoService.get_total_todos(db, current_user["key"])
+        todos_list = []
+        for todo in todos:
+            todos_list.append(
+                {
+                    "key": todo["key"],
+                    "title": todo["title"],
+                    "description": todo["description"],
+                    "completed": todo["completed"],
+                    "priority": todo["priority"],
+                    "created_at": todo["created_at"].isoformat(),
+                    "updated_at": (
+                        todo["updated_at"].isoformat() if todo["updated_at"] else None
+                    ),
+                }
             )
-        else:
-            raise HTTPException(status_code=404, detail="Todo not found")
+        return web.json_response(
+            {
+                "todos": todos_list,
+                "total": total,
+                "page": page,
+                "size": size,
+                "success": True,
+                "next_link": (
+                    f"/api/v1/todos?page={page + 1}&size={size}&sort={sort}&completed={completed}&priority={priority}&search={search}"
+                    if page * size < total
+                    else None
+                ),
+                "prev_link": (
+                    f"/api/v1/todos?page={page - 1}&size={size}&sort={sort}&completed={completed}&priority={priority}&search={search}"
+                    if page > 1
+                    else None
+                ),
+            },
+            status=200,
+        )
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while patching todo (original error message: {e})",
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while getting todos (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
 
+
+async def get_todo_by_key(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    key = request.match_info["key"]
     try:
-        # Only update fields that are provided
-        updated_todo = TodoService.patch_todo(db, todo_id, todo_patch, current_user.key)
-        return TodoResponse(**updated_todo.to_dict())
+        todo_id = await TodoService.fetch_todo_id_by_key(db, key, current_user["key"])
+        if not todo_id:
+            raise web.HTTPNotFound(
+                text=f"Todo with key {key} not found",
+                headers={
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
+            )
+        todo = await TodoService.get_todo(db, todo_id, current_user["key"])
+        if not todo:
+            raise web.HTTPNotFound(
+                text=f"Todo with key {key} not found",
+                headers={
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
+            )
+        return web.json_response(
+            {
+                "key": todo["key"],
+                "title": todo["title"],
+                "description": todo["description"],
+                "completed": todo["completed"],
+                "priority": todo["priority"],
+                "created_at": todo["created_at"].isoformat(),
+                "updated_at": (
+                    todo["updated_at"].isoformat() if todo["updated_at"] else None
+                ),
+                "success": True,
+            },
+            status=200,
+        )
+    except ValueError:
+        raise web.HTTPNotFound(
+            text=f"Todo with key {key} not found",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500, detail="Internal server error while updating todo"
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while getting todo by key (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
 
 
-@router.delete("/{key}")
-@limiter.limit("10/minute;50/hour")
-def delete_todo(
-    request: Request,
-    response: Response,
-    key: str,
-    current_user: Annotated[UserSchema, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-):
+async def create_todo(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    todo_data = await request.json()
     try:
-        todo_id = TodoService.fetch_todo_id_by_key(db, key, current_user.key)
-        if TodoService.delete_todo(db, todo_id, current_user.key):
-            return {"message": "Todo deleted successfully"}
-        else:
-            raise HTTPException(
-                status_code=500, detail="Internal server error while deleting todo"
+        todo = await TodoService.create_todo(db, todo_data, current_user["key"])
+        return web.json_response(
+            {
+                "key": todo["key"],
+                "title": todo["title"],
+                "description": todo["description"],
+                "completed": todo["completed"],
+                "priority": todo["priority"],
+                "created_at": todo["created_at"].isoformat(),
+                "updated_at": (
+                    todo["updated_at"].isoformat() if todo["updated_at"] else None
+                ),
+                "success": True,
+            },
+            status=201,
+        )
+    except ValueError as e:
+        raise web.HTTPBadRequest(
+            text=str(e),
+        )
+    except Exception as e:
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while creating todo (original error message: {e})",
+        )
+
+
+async def update_todo(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    key = request.match_info["key"]
+    todo_data = await request.json()
+    try:
+        todo_id = await TodoService.fetch_todo_id_by_key(db, key, current_user["key"])
+        if not todo_id:
+            raise web.HTTPNotFound(
+                text=f"Todo with key {key} not found",
+                headers={
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
             )
     except ValueError:
-        raise HTTPException(status_code=404, detail=f"Todo with key {key} not found")
+        raise web.HTTPNotFound(
+            text=f"Todo with key {key} not found",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while deleting todo (original error message: {e})",
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while updating todo (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+    try:
+        todo = await TodoService.update_todo(
+            db, todo_id, todo_data, current_user["key"]
+        )
+        return web.json_response(
+            {
+                "key": todo["key"],
+                "title": todo["title"],
+                "description": todo["description"],
+                "completed": todo["completed"],
+                "priority": todo["priority"],
+                "created_at": todo["created_at"].isoformat(),
+                "updated_at": (
+                    todo["updated_at"].isoformat() if todo["updated_at"] else None
+                ),
+                "success": True,
+            },
+            status=200,
+        )
+    except Exception as e:
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while updating todo (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
+
+async def patch_todo(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    key = request.match_info["key"]
+    todo_patch = await request.json()
+    try:
+        todo_id = await TodoService.fetch_todo_id_by_key(db, key, current_user["key"])
+        if not todo_id:
+            raise web.HTTPNotFound(
+                text=f"Todo with key {key} not found",
+                headers={
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
+            )
+    except ValueError:
+        raise web.HTTPNotFound(
+            text=f"Todo with key {key} not found",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+    except Exception as e:
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while patching todo (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+    try:
+        updated_todo = await TodoService.patch_todo(
+            db, todo_id, todo_patch, current_user["key"]
+        )
+        return web.json_response(
+            {
+                "key": updated_todo["key"],
+                "title": updated_todo["title"],
+                "description": updated_todo["description"],
+                "completed": updated_todo["completed"],
+                "priority": updated_todo["priority"],
+                "created_at": updated_todo["created_at"].isoformat(),
+                "updated_at": (
+                    updated_todo["updated_at"].isoformat()
+                    if updated_todo["updated_at"]
+                    else None
+                ),
+                "success": True,
+            },
+            status=200,
+        )
+    except Exception as e:
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while patching todo (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
+
+async def delete_todo(request: web.Request):
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    key = request.match_info["key"]
+    try:
+        todo_id = await TodoService.fetch_todo_id_by_key(db, key, current_user["key"])
+        if not todo_id:
+            raise web.HTTPNotFound(
+                text=f"Todo with key {key} not found",
+                headers={
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
+            )
+        if await TodoService.delete_todo(db, todo_id, current_user["key"]):
+            return web.Response(status=204)
+        else:
+            raise web.HTTPInternalServerError(
+                text="Internal server error while deleting todo",
+                headers={
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
+            )
+    except ValueError:
+        raise web.HTTPNotFound(
+            text=f"Todo with key {key} not found",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+    except Exception as e:
+        raise web.HTTPInternalServerError(
+            text=f"Internal server error while deleting todo (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
