@@ -57,6 +57,10 @@ async def get_priorities(request: web.Request):
     except Exception as e:
         raise web.HTTPInternalServerError(
             text=f"Internal server error while getting priorities (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
 
 
@@ -95,6 +99,10 @@ async def get_priority_by_key(request: web.Request):
     except Exception as e:
         raise web.HTTPInternalServerError(
             text=f"Internal server error while getting priority by key (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
 
 
@@ -127,6 +135,10 @@ async def create_priority(request: web.Request):
         print(e.with_traceback(e.__traceback__))
         raise web.HTTPInternalServerError(
             text=f"Internal server error while creating priority (original error message: {e.with_traceback(e.__traceback__)})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
 
 
@@ -145,6 +157,10 @@ async def update_priority(request: web.Request):
     except Exception as e:
         raise web.HTTPInternalServerError(
             text=f"Internal server error while updating priority (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
     try:
         priority = await PriorityService.update_priority(
@@ -212,6 +228,10 @@ async def patch_priority(request: web.Request):
     except Exception as e:
         raise web.HTTPInternalServerError(
             text=f"Internal server error while updating priority (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
 
 
@@ -237,4 +257,8 @@ async def delete_priority(request: web.Request):
     except Exception as e:
         raise web.HTTPInternalServerError(
             text=f"Internal server error while deleting priority (original error message: {e})",
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
         )

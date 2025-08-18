@@ -1,3 +1,4 @@
+import logging
 from aiohttp import web
 from db.conn import init_db, close_db
 from app.aiohttp.api.v1.endpoints import token
@@ -141,6 +142,9 @@ async def delete_user(request):
     return await user.delete_user(request)
 
 
+logging.basicConfig(level=logging.DEBUG)
+
+
 def create_app() -> web.Application:
     cors = make_cors_middleware(
         allowed_origins={
@@ -157,7 +161,7 @@ def create_app() -> web.Application:
             api.error_middleware,
             api.db_connection_middleware,
             auth_parsing_middleware,
-        ]
+        ],
     )
     app.add_routes(routes)
     app.on_startup.append(init_db)
@@ -166,4 +170,10 @@ def create_app() -> web.Application:
 
 
 if __name__ == "__main__":
-    web.run_app(create_app(), host="localhost", port=8000)
+    web.run_app(
+        create_app(),
+        host="localhost",
+        port=8000,
+        access_log_format='\n%a | %t \n"%r" \nStatus: %s | Resp Size: %b | Time: %T'
+        "\n-------------------------------------------------",
+    )

@@ -47,7 +47,7 @@ class TodoService:
             key,
             user_key,
         )
-        if db_todo["user_key"] != user_key:
+        if not db_todo:
             raise ValueError(f"Todo with key {key} not found for user {user_key}")
         return db_todo["id"] if db_todo else None
 
@@ -63,59 +63,100 @@ class TodoService:
         search: Optional[str] = None,
     ):
         query = await conn.fetch(
-            "SELECT * FROM todos WHERE user_key = $1 OFFSET $2 LIMIT $3",
+            "SELECT t.* FROM todos t WHERE t.user_key = $1 OFFSET $2 LIMIT $3",
             user_key,
             skip,
             limit,
         )
         if completed is not None:
             query = await conn.fetch(
-                "SELECT * FROM todos WHERE user_key = $1 AND completed = $2",
+                "SELECT t.* FROM todos t WHERE t.user_key = $1 AND t.completed = $2",
                 user_key,
                 completed,
             )
         if priority is not None:
             query = await conn.fetch(
-                "SELECT * FROM todos WHERE user_key = $1 AND priority = $2",
+                "SELECT t.* FROM todos t WHERE t.user_key = $1 AND t.priority = $2",
                 user_key,
                 priority,
             )
         if search is not None:
             query = await conn.fetch(
-                "SELECT * FROM todos WHERE user_key = $1 AND title ILIKE $2",
+                "SELECT t.* FROM todos t WHERE t.user_key = $1 AND t.title ILIKE $2",
                 user_key,
                 f"%{search.lower()}%",
             )
 
+        # Sorting on priority is on priority table with column "order"
+
         if sort == "priority-desc":
             query = await conn.fetch(
-                "SELECT * FROM todos WHERE user_key = $1 ORDER BY priority DESC",
+                "SELECT t.* "
+                "FROM todos t "
+                "JOIN priorities p ON t.priority = p.key "
+                "WHERE t.user_key = $1 "
+                "ORDER BY p.order DESC"
+                "LIMIT $2 OFFSET $3",
                 user_key,
+                limit,
+                skip,
             )
         elif sort == "priority-desc-text-asc":
             query = await conn.fetch(
-                "SELECT * FROM todos WHERE user_key = $1 ORDER BY priority DESC, title ASC",
+                "SELECT t.* "
+                "FROM todos t "
+                "JOIN priorities p ON t.priority = p.key "
+                "WHERE t.user_key = $1 "
+                "ORDER BY p.order DESC, t.title ASC"
+                "LIMIT $2 OFFSET $3",
                 user_key,
+                limit,
+                skip,
             )
         elif sort == "incomplete-priority-desc":
             query = await conn.fetch(
-                "SELECT * FROM todos WHERE user_key = $1 AND completed = FALSE ORDER BY priority DESC",
+                "SELECT t.* "
+                "FROM todos t "
+                "JOIN priorities p ON t.priority = p.key "
+                "WHERE t.user_key = $1 "
+                "ORDER BY t.completed, p.order ASC "
+                "LIMIT $2 OFFSET $3",
                 user_key,
+                limit,
+                skip,
             )
         elif sort == "text-asc":
             query = await conn.fetch(
-                "SELECT * FROM todos WHERE user_key = $1 ORDER BY title ASC",
+                "SELECT t.* "
+                "FROM todos t "
+                "WHERE t.user_key = $1 "
+                "ORDER BY t.title ASC"
+                "LIMIT $2 OFFSET $3",
                 user_key,
+                limit,
+                skip,
             )
         elif sort == "text-desc":
             query = await conn.fetch(
-                "SELECT * FROM todos WHERE user_key = $1 ORDER BY title DESC",
+                "SELECT t.* "
+                "FROM todos t "
+                "WHERE t.user_key = $1 "
+                "ORDER BY t.title DESC"
+                "LIMIT $2 OFFSET $3",
                 user_key,
+                limit,
+                skip,
             )
         else:
             query = await conn.fetch(
-                "SELECT * FROM todos WHERE user_key = $1 ORDER BY id DESC",
+                "SELECT t.* "
+                "FROM todos t "
+                "WHERE t.user_key = $1 "
+                "ORDER BY t.id DESC"
+                "LIMIT $2 OFFSET $3",
                 user_key,
+                limit,
+                skip,
             )
 
         return query
@@ -166,7 +207,7 @@ class TodoService:
 
             # Execute the update
             query = f"""
-                UPDATE todos 
+                UPDATE todos
                 SET {', '.join(update_fields)}
                 WHERE id = ${param_count} AND user_key = ${param_count + 1}
                 RETURNING *
@@ -205,6 +246,7 @@ class TodoService:
     async def patch_todo(
         conn: asyncpg.Connection, todo_id: int, todo_patch: dict, user_key: str
     ) -> Todo:
+        print("Check 232")
         if "priority" in todo_patch:
             priority = await conn.fetchrow(
                 "SELECT * FROM priorities WHERE key = $1 AND user_key = $2",
@@ -214,26 +256,44 @@ class TodoService:
             if not priority:
                 raise ValueError(f"Priority with id {todo_patch['priority']} not found")
             todo_patch["priority"] = priority["key"]
+        print("Check 244")
         db_todo = await conn.fetchrow(
             "SELECT * FROM todos WHERE id = $1 AND user_key = $2",
             todo_id,
             user_key,
         )
+        print("Check 248", db_todo)
         if not db_todo:
             raise ValueError(f"Todo with id {todo_id} not found")
-
+        print("Check 252")
+        updated_todo = {}
         for field, value in todo_patch.items():
             if field == "priority":
-                db_todo[field] = priority["key"]
+                updated_todo[field] = priority["key"]
             else:
-                db_todo[field] = value
-        await conn.execute(
-            "UPDATE todos SET title = $1, description = $2, completed = $3, priority = $4 WHERE id = $5 AND user_key = $6",
-            db_todo["title"],
-            db_todo["description"],
-            db_todo["completed"],
-            db_todo["priority"],
-            db_todo["id"],
-            user_key,
-        )
-        return db_todo
+                updated_todo[field] = value
+        print("Check 258")
+        # Update the todo using conditional query
+        update_fields = []
+        values = []
+        param_count = 3
+        values.append(db_todo["id"])
+        values.append(user_key)
+        for field, value in todo_patch.items():
+            if field == "priority":
+                update_fields.append(f'"{field}" = ${param_count}')
+                values.append(priority["key"])
+            else:
+                update_fields.append(f'"{field}" = ${param_count}')
+                values.append(value)
+            param_count += 1
+        print("Check 275", update_fields, values)
+        query = f"""
+            UPDATE todos
+            SET {', '.join(update_fields)}
+            WHERE id = $1 AND user_key = $2
+            RETURNING *
+        """
+        print("Check 282", query)
+        updated_todo = await conn.fetchrow(query, *values)
+        return updated_todo

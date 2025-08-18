@@ -39,6 +39,14 @@ async def read_users(request: web.Request):
                 "page": page,
                 "size": size,
                 "success": True,
+                "next_link": (
+                    f"/api/v1/users?page={page + 1}&size={size}"
+                    if page * size < total
+                    else None
+                ),
+                "prev_link": (
+                    f"/api/v1/users?page={page - 1}&size={size}" if page > 1 else None
+                ),
             }
         )
     except Exception as e:

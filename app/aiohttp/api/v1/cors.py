@@ -1,6 +1,14 @@
 # cors.py
+import logging
 from typing import Iterable, Set, Optional
 from aiohttp import web
+
+logger = logging.getLogger(__name__)
+
+allowed = {
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+}
 
 
 def make_cors_middleware(
@@ -61,3 +69,28 @@ def make_cors_middleware(
         return resp
 
     return cors_middleware
+
+
+def _apply_cors(request: web.Request, response: web.StreamResponse) -> None:
+    logger.debug(f"Applying CORS to response: {response}")
+    origin = request.headers.get("Origin")
+    # Kies: strikte whitelist óf wildcard. Met credentials mag je géén '*'.
+    if origin in allowed:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"  # belangrijk voor caches
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        # Pas aan op je front-end behoeften:
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Methods"] = (
+            "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+        )
+        response.headers["Access-Control-Expose-Headers"] = (
+            "Content-Length, Content-Type"
+        )
+    else:
+        # Of laat weg voor nóg strikter beleid
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = (
+            "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+        )
+        response.headers["Access-Control-Allow-Headers"] = "*"

@@ -1,6 +1,5 @@
 import functools
 from typing import Iterable, Optional, Set, Dict, Any
-
 from aiohttp import web
 from app.core.security import TokenManager
 import jwt
@@ -41,7 +40,6 @@ def _scopes_from_claims(claims: Dict[str, Any]) -> Set[str]:
 # ---- Middleware: parse & verify (niet handhaven) ----
 @web.middleware
 async def auth_parsing_middleware(request: web.Request, handler):
-    print("auth_parsing_middleware", request)
     token = _extract_bearer(request)
     if token is None:
         # Publieke request; geen user
@@ -73,14 +71,12 @@ def require_auth(scopes: Optional[Iterable[str]] = None, any_scope: bool = False
         async def wrapped(request: web.Request, *args, **kwargs):
             claims = request.get("claims")
             if not claims:
-                print("no claims")
                 return _bearer_unauthorized("invalid_token", "Missing or invalid token")
 
             if needed:
                 have = _scopes_from_claims(claims)
                 ok = bool(have & needed) if any_scope else needed.issubset(have)
                 if not ok:
-                    print("insufficient scope")
                     return _forbidden("Insufficient scope")
 
             return await handler(request, *args, **kwargs)
