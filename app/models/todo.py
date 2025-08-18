@@ -27,7 +27,14 @@ class Todo(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Index for user_key
-    __table_args__ = (Index("ix_todo_user_key", "user_key"),)
+    __table_args__ = (
+        Index("ix_todo_user_key", "user_key"),
+        Index("ix_todo_priority", "priority"),
+        Index("ix_todo_completed", "completed"),
+        Index("ix_todo_user_key_key", "user_key", "key"),
+        Index("ix_todo_user_key_completed", "user_key", "completed"),
+        Index("ix_todo_user_key_priority", "user_key", "priority"),
+    )
 
     def __str__(self):
         return (

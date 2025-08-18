@@ -14,4 +14,4 @@ def apply_auth_routes(routes: web.RouteTableDef) -> None:
     @routes.post("/api/v1/token")
     async def token_route(request: web.Request):
         """Login endpoint to obtain access token."""
-        return await token.token_route(request)
+        return await token.login_for_access_token(request)

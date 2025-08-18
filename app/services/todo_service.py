@@ -1,16 +1,24 @@
-# app/services/todo_service.py
-from app.models.todo import Todo
 from app.schemas.todo import TodoCreate, TodoUpdate
 import uuid
 from typing import Optional
 import asyncpg
+from app.core.errors import AppError, NotFoundError
+
+ALLOWED_SORTS = {
+    "incomplete-priority-desc": "t.completed ASC, p.order ASC, t.id DESC",
+    "priority-desc": "p.order ASC, t.id DESC",
+    "priority-desc-text-asc": "p.order ASC, t.title ASC",
+    "text-asc": "t.title ASC, t.id DESC",
+    "text-desc": "t.title DESC, t.id DESC",
+    "created-desc": "t.id DESC",
+}
 
 
 class TodoService:
     @staticmethod
     async def create_todo(
         conn: asyncpg.Connection, todo: TodoCreate, user_key: str
-    ) -> Todo:
+    ) -> asyncpg.Record:
         async with conn.transaction():
             priority = await conn.fetchrow(
                 """
@@ -34,8 +42,8 @@ class TodoService:
             }
             db_todo = await conn.fetchrow(
                 """
-                INSERT INTO todos t
-                (t.key, t.title, t.description, t.completed, t.priority, t.user_key)
+                INSERT INTO todos
+                (key, title, description, completed, priority, user_key)
                 VALUES ($1, $2, $3, $4, $5, $6)
                 RETURNING *
                 """,
@@ -53,19 +61,22 @@ class TodoService:
         conn: asyncpg.Connection, key: str, user_key: str
     ) -> int:
         """Get a todo by its UUID key instead of ID."""
-        db_todo = await conn.fetchrow(
-            """
-            SELECT t.*
-            FROM todos t
-            WHERE t.key = $1
-            AND t.user_key = $2
-            """,
-            key,
-            user_key,
-        )
-        if not db_todo:
-            raise ValueError(f"Todo with key {key} not found for user {user_key}")
-        return db_todo["id"] if db_todo else None
+        try:
+            db_todo = await conn.fetchrow(
+                """
+                SELECT t.*
+                FROM todos t
+                WHERE t.key = $1
+                AND t.user_key = $2
+                """,
+                key,
+                user_key,
+            )
+            if not db_todo:
+                raise NotFoundError(ValueError(f"Todo with key {key} not found"))
+            return db_todo["id"]
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
     async def get_todos(
@@ -77,153 +88,69 @@ class TodoService:
         completed: Optional[bool] = None,
         priority: Optional[str] = None,
         search: Optional[str] = None,
-    ):
-        query = await conn.fetch(
-            """
-            SELECT t.*
-            FROM todos t
-            WHERE t.user_key = $1
-            OFFSET $2
-            LIMIT $3
-            """,
-            user_key,
-            skip,
-            limit,
-        )
-        if completed is not None:
-            query = await conn.fetch(
-                """
-                SELECT t.*
-                FROM todos t
-                WHERE t.user_key = $1 AND t.completed = $2
-                """,
-                user_key,
-                completed,
-            )
-        if priority is not None:
-            query = await conn.fetch(
-                """
-                SELECT t.*
-                FROM todos t
-                WHERE t.user_key = $1 AND t.priority = $2
-                """,
-                user_key,
-                priority,
-            )
-        if search is not None:
-            query = await conn.fetch(
-                """
-                SELECT t.*
-                FROM todos t
-                WHERE t.user_key = $1 AND t.title ILIKE $2
-                """,
-                user_key,
-                f"%{search.lower()}%",
-            )
+    ) -> list[asyncpg.Record]:
+        try:
+            where = ["t.user_key = $1"]
+            params = [user_key]
+            next_idx = 2
 
-        # Sorting on priority is on priority table with column "order"
+            if completed is not None:
+                where.append(f"t.completed = ${next_idx}")
+                params.append(completed)
+                next_idx += 1
+            if priority is not None:
+                where.append(f"t.priority = ${next_idx}")
+                params.append(priority)
+                next_idx += 1
+            if search:
+                where.append(f"t.title ILIKE ${next_idx}")
+                params.append(f"%{search}%")
+                next_idx += 1
 
-        if sort == "priority-desc":
-            query = await conn.fetch(
-                """
-                SELECT t.*
-                FROM todos t
-                JOIN priorities p ON t.priority = p.key
-                WHERE t.user_key = $1
-                ORDER BY p.order DESC
-                LIMIT $2 OFFSET $3
-                """,
-                user_key,
-                limit,
-                skip,
-            )
-        elif sort == "priority-desc-text-asc":
-            query = await conn.fetch(
-                """
-                SELECT t.*
-                FROM todos t
-                JOIN priorities p ON t.priority = p.key
-                WHERE t.user_key = $1
-                ORDER BY p.order DESC, t.title ASC
-                LIMIT $2 OFFSET $3
-                """,
-                user_key,
-                limit,
-                skip,
-            )
-        elif sort == "incomplete-priority-desc":
-            query = await conn.fetch(
-                """
-                SELECT t.*
-                FROM todos t
-                JOIN priorities p ON t.priority = p.key
-                WHERE t.user_key = $1
-                ORDER BY t.completed, p.order ASC
-                LIMIT $2 OFFSET $3
-                """,
-                user_key,
-                limit,
-                skip,
-            )
-        elif sort == "text-asc":
-            query = await conn.fetch(
-                """
-                SELECT t.*
-                FROM todos t
-                WHERE t.user_key = $1
-                ORDER BY t.title ASC
-                LIMIT $2 OFFSET $3
-                """,
-                user_key,
-                limit,
-                skip,
-            )
-        elif sort == "text-desc":
-            query = await conn.fetch(
-                """
-                SELECT t.*
-                FROM todos t
-                WHERE t.user_key = $1
-                ORDER BY t.title DESC
-                LIMIT $2 OFFSET $3
-                """,
-                user_key,
-                limit,
-                skip,
-            )
-        else:
-            query = await conn.fetch(
-                """
-                SELECT t.*
-                FROM todos t
-                WHERE t.user_key = $1
-                ORDER BY t.id DESC
-                LIMIT $2 OFFSET $3
-                """,
-                user_key,
-                limit,
-                skip,
-            )
-
-        return query
+            order_by = ALLOWED_SORTS.get(sort, ALLOWED_SORTS["created-desc"])
+            sql = f"""
+                    SELECT t.*
+                    FROM todos t
+                    LEFT JOIN priorities p ON p.key = t.priority
+                    WHERE {' AND '.join(where)}
+                    ORDER BY {order_by}
+                    OFFSET ${next_idx} LIMIT ${next_idx + 1}
+                    """
+            params.extend([skip, limit])
+            resp = await conn.fetch(sql, *params)
+            if not resp:
+                raise NotFoundError(ValueError("No todos found"))
+            return resp
+        except NotFoundError:
+            raise NotFoundError(ValueError("No todos found"))
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
-    async def get_todo(conn: asyncpg.Connection, todo_id: int, user_key: str):
-        return await conn.fetchrow(
-            """
-            SELECT t.*
-            FROM todos t
-            WHERE t.id = $1
-            AND t.user_key = $2
-            """,
-            todo_id,
-            user_key,
-        )
+    async def get_todo(
+        conn: asyncpg.Connection, todo_id: int, user_key: str
+    ) -> asyncpg.Record:
+        try:
+            resp = await conn.fetchrow(
+                """
+                SELECT t.*
+                FROM todos t
+                WHERE t.id = $1
+                AND t.user_key = $2
+                """,
+                todo_id,
+                user_key,
+            )
+            if not resp:
+                raise NotFoundError(ValueError(f"Todo with id {todo_id} not found"))
+            return resp
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
     async def update_todo(
         conn: asyncpg.Connection, todo_id: int, todo_update: TodoUpdate, user_key: str
-    ):
+    ) -> asyncpg.Record:
         async with conn.transaction():
             priority = await conn.fetchrow(
                 """
@@ -311,19 +238,25 @@ class TodoService:
 
     @staticmethod
     async def get_total_todos(conn: asyncpg.Connection, user_key: str) -> int:
-        return await conn.fetchval(
-            """
-            SELECT COUNT(*)
-            FROM todos t
-            WHERE t.user_key = $1
-            """,
-            user_key,
-        )
+        try:
+            resp = await conn.fetchval(
+                """
+                SELECT COUNT(*)
+                FROM todos t
+                WHERE t.user_key = $1
+                """,
+                user_key,
+            )
+            if not resp:
+                raise NotFoundError(ValueError("No todos found"))
+            return resp
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
     async def patch_todo(
         conn: asyncpg.Connection, todo_id: int, todo_patch: dict, user_key: str
-    ) -> Todo:
+    ) -> asyncpg.Record:
         async with conn.transaction():
             if "priority" in todo_patch:
                 priority = await conn.fetchrow(

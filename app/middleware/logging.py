@@ -30,8 +30,7 @@ async def request_logging_middleware(request: web.Request, handler):
 
     # Log incoming request
     logger.info(
-        f"Request started: {request.method} {request.path} "
-        f"from {request.remote} - {request.headers.get('User-Agent', 'Unknown')}"
+        f"Request started: {request.method} {request.path} from {request.remote}"
     )
 
     request_id = request.headers.get(REQUEST_ID_HEADER, str(uuid.uuid4()))

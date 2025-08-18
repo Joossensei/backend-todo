@@ -2,6 +2,13 @@
 from aiohttp import web
 from app.services.priority_service import PriorityService
 from app.services.auth_service import AuthService
+from app.utils.mapping import record_to_dict
+from app.schemas.priority import PriorityResponse, PriorityListResponse
+from app.utils.pagination import build_pagination_link
+from app.core.errors import AppError, NotFoundError
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 async def get_priorities(request: web.Request):
@@ -16,52 +23,21 @@ async def get_priorities(request: web.Request):
             db, current_user["key"], skip, size
         )
         total = await PriorityService.get_total_priorities(db, current_user["key"])
-        resp = []
-        for priority in priorities:
-            resp.append(
-                {
-                    "key": priority["key"],
-                    "name": priority["name"],
-                    "description": priority["description"],
-                    "color": priority["color"],
-                    "icon": priority["icon"],
-                    "order": priority["order"],
-                    "user_key": priority["user_key"],
-                    "created_at": priority["created_at"].isoformat(),
-                    "updated_at": (
-                        priority["updated_at"].isoformat()
-                        if priority["updated_at"]
-                        else None
-                    ),
-                }
-            )
+        items = [PriorityResponse(**record_to_dict(p)) for p in priorities]
         return web.json_response(
-            {
-                "priorities": resp,
-                "total": total,
-                "page": page,
-                "size": size,
-                "success": True,
-                "next_link": (
-                    f"/api/v1/priorities?page={page + 1}&size={size}"
-                    if page * size < total
-                    else None
-                ),
-                "prev_link": (
-                    f"/api/v1/priorities?page={page - 1}&size={size}"
-                    if page > 1
-                    else None
-                ),
-            }
+            PriorityListResponse(
+                priorities=items,
+                total=total,
+                page=page,
+                size=size,
+                success=True,
+                next_link=build_pagination_link(request.url, page + 1, size, total),
+                prev_link=build_pagination_link(request.url, page - 1, size, total),
+            ).model_dump(),
+            status=200,
         )
     except Exception as e:
-        raise web.HTTPInternalServerError(
-            text=f"Internal server error while getting priorities (original error message: {e})",
-            headers={
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-            },
-        )
+        raise AppError(e)
 
 
 async def get_priority_by_key(request: web.Request):
@@ -77,33 +53,13 @@ async def get_priority_by_key(request: web.Request):
             db, priority_id, current_user["key"]
         )
         return web.json_response(
-            {
-                "key": priority["key"],
-                "name": priority["name"],
-                "description": priority["description"],
-                "color": priority["color"],
-                "icon": priority["icon"],
-                "order": priority["order"],
-                "user_key": priority["user_key"],
-                "created_at": priority["created_at"].isoformat(),
-                "updated_at": (
-                    priority["updated_at"].isoformat()
-                    if priority["updated_at"]
-                    else None
-                ),
-                "success": True,
-            }
+            PriorityResponse(**record_to_dict(priority)).model_dump(),
+            status=200,
         )
     except ValueError:
-        raise web.HTTPNotFound(text=f"Priority with key {key} not found")
+        raise NotFoundError(ValueError(f"Priority with key {key} not found"))
     except Exception as e:
-        raise web.HTTPInternalServerError(
-            text=f"Internal server error while getting priority by key (original error message: {e})",
-            headers={
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-            },
-        )
+        raise AppError(e)
 
 
 async def create_priority(request: web.Request):
@@ -115,31 +71,14 @@ async def create_priority(request: web.Request):
         priority = await PriorityService.create_priority(
             db, priority, current_user["key"]
         )
-        print(priority)
         return web.json_response(
-            {
-                "key": priority["key"],
-                "name": priority["name"],
-                "description": priority["description"],
-                "color": priority["color"],
-                "icon": priority["icon"],
-                "order": priority["order"],
-                "user_key": priority["user_key"],
-                "created_at": priority["created_at"].isoformat(),
-                "success": True,
-            }
+            PriorityResponse(**record_to_dict(priority)).model_dump(),
+            status=201,
         )
     except ValueError as e:
-        raise web.HTTPBadRequest(text=str(e))
+        raise AppError(e)
     except Exception as e:
-        print(e.with_traceback(e.__traceback__))
-        raise web.HTTPInternalServerError(
-            text=f"Internal server error while creating priority (original error message: {e.with_traceback(e.__traceback__)})",
-            headers={
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-            },
-        )
+        raise AppError(e)
 
 
 async def update_priority(request: web.Request):
@@ -153,41 +92,19 @@ async def update_priority(request: web.Request):
             db, key, current_user["key"]
         )
     except ValueError:
-        raise web.HTTPNotFound(text=f"Priority with key {key} not found")
+        raise NotFoundError(ValueError(f"Priority with key {key} not found"))
     except Exception as e:
-        raise web.HTTPInternalServerError(
-            text=f"Internal server error while updating priority (original error message: {e})",
-            headers={
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-            },
-        )
+        raise AppError(e)
     try:
         priority = await PriorityService.update_priority(
             db, priority_id, priority, current_user["key"]
         )
         return web.json_response(
-            {
-                "key": priority["key"],
-                "name": priority["name"],
-                "description": priority["description"],
-                "color": priority["color"],
-                "icon": priority["icon"],
-                "order": priority["order"],
-                "user_key": priority["user_key"],
-                "created_at": priority["created_at"].isoformat(),
-                "updated_at": (
-                    priority["updated_at"].isoformat()
-                    if priority["updated_at"]
-                    else None
-                ),
-                "success": True,
-            }
+            PriorityResponse(**record_to_dict(priority)).model_dump(),
+            status=200,
         )
     except Exception as e:
-        raise web.HTTPInternalServerError(
-            text=f"Internal server error while updating priority (original error message: {e})",
-        )
+        raise AppError(e)
 
 
 async def patch_priority(request: web.Request):
@@ -201,38 +118,20 @@ async def patch_priority(request: web.Request):
             db, key, current_user["key"]
         )
     except ValueError:
-        raise web.HTTPNotFound(text=f"Priority with key {key} not found")
+        raise NotFoundError(ValueError(f"Priority with key {key} not found"))
     except Exception as e:
-        raise web.HTTPInternalServerError(
-            text=f"Internal server error while patching priority (original error message: {e})",
-        )
+        raise AppError(e)
     try:
         # Only update fields that are provided
         updated_priority = await PriorityService.patch_priority(
             db, priority_id, priority_patch, current_user["key"]
         )
         return web.json_response(
-            {
-                "key": updated_priority["key"],
-                "name": updated_priority["name"],
-                "description": updated_priority["description"],
-                "color": updated_priority["color"],
-                "icon": updated_priority["icon"],
-                "order": updated_priority["order"],
-                "user_key": updated_priority["user_key"],
-                "created_at": updated_priority["created_at"].isoformat(),
-                "updated_at": updated_priority["updated_at"].isoformat(),
-                "success": True,
-            }
+            PriorityResponse(**record_to_dict(updated_priority)).model_dump(),
+            status=200,
         )
     except Exception as e:
-        raise web.HTTPInternalServerError(
-            text=f"Internal server error while updating priority (original error message: {e})",
-            headers={
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-            },
-        )
+        raise AppError(e)
 
 
 async def delete_priority(request: web.Request):
@@ -245,20 +144,10 @@ async def delete_priority(request: web.Request):
             db, key, current_user["key"]
         )
         if await PriorityService.delete_priority(db, priority_id, current_user["key"]):
-            return web.json_response(
-                {"message": "Priority deleted successfully", "success": True}
-            )
+            return web.Response(status=204)
         else:
-            raise web.HTTPInternalServerError(
-                text="Internal server error while deleting priority"
-            )
+            raise AppError(ValueError("Failed to delete priority"))
     except ValueError:
-        raise web.HTTPNotFound(text=f"Priority with key {key} not found")
+        raise NotFoundError(ValueError(f"Priority with key {key} not found"))
     except Exception as e:
-        raise web.HTTPInternalServerError(
-            text=f"Internal server error while deleting priority (original error message: {e})",
-            headers={
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-            },
-        )
+        raise AppError(e)

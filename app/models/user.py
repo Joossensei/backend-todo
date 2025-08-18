@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Index
 from sqlalchemy.sql import func
 from db.database import Base
 
@@ -15,6 +15,10 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    __table_args__ = (
+        Index("ix_user_key", "key"),
+    )
 
     def __str__(self):
         return (

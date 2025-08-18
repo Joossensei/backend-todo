@@ -3,6 +3,7 @@ from app.models.priority import Priority
 from app.schemas.priority import PriorityCreate
 import uuid
 import asyncpg
+from app.core.errors import AppError, NotFoundError
 
 
 class PriorityService:
@@ -45,48 +46,71 @@ class PriorityService:
         conn: asyncpg.Connection, key: str, user_key: str
     ) -> int:
         """Get a priority by its UUID key instead of ID."""
-        db_priority = await conn.fetchrow(
-            """
-            SELECT p.id
+        try:
+            db_priority = await conn.fetchrow(
+                """
+                SELECT p.id
             FROM priorities p
             WHERE p.key = $1
             AND p.user_key = $2
             """,
-            key,
-            user_key,
-        )
-        return db_priority["id"] if db_priority else None
+                key,
+                user_key,
+            )
+            if not db_priority:
+                raise NotFoundError(ValueError(f"Priority with key {key} not found"))
+            return db_priority["id"]
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
     async def get_priorities(
         conn: asyncpg.Connection, user_key: str, skip: int = 0, limit: int = 10
-    ):
-        return await conn.fetch(
-            """
-            SELECT p.*
-            FROM priorities p
-            WHERE p.user_key = $1
-            ORDER BY p.order ASC
-            OFFSET $2
-            LIMIT $3
-            """,
-            user_key,
-            skip,
-            limit,
-        )
+    ) -> list[Priority]:
+        try:
+            resp = await conn.fetch(
+                """
+                SELECT p.*
+                FROM priorities p
+                WHERE p.user_key = $1
+                ORDER BY p.order ASC
+                OFFSET $2
+                LIMIT $3
+                """,
+                user_key,
+                skip,
+                limit,
+            )
+            if not resp:
+                raise NotFoundError(
+                    ValueError(f"No priorities found for user {user_key}")
+                )
+            return resp
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
-    async def get_priority(conn: asyncpg.Connection, priority_id: int, user_key: str):
-        return await conn.fetchrow(
-            """
-            SELECT p.*
-            FROM priorities p
-            WHERE p.id = $1
-            AND p.user_key = $2
-            """,
-            priority_id,
-            user_key,
-        )
+    async def get_priority(
+        conn: asyncpg.Connection, priority_id: int, user_key: str
+    ) -> Priority:
+        try:
+            resp = await conn.fetchrow(
+                """
+                SELECT p.*
+                FROM priorities p
+                WHERE p.id = $1
+                AND p.user_key = $2
+                """,
+                priority_id,
+                user_key,
+            )
+            if not resp:
+                raise NotFoundError(
+                    ValueError(f"Priority with id {priority_id} not found")
+                )
+            return resp
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
     async def update_priority(
@@ -134,7 +158,7 @@ class PriorityService:
                 SET {', '.join(update_fields)}
                 WHERE id = ${param_count} AND user_key = ${param_count + 1}
                 RETURNING *
-            """
+                """
 
             updated_priority = await conn.fetchrow(query, *values)
             return updated_priority
@@ -171,14 +195,22 @@ class PriorityService:
 
     @staticmethod
     async def get_total_priorities(conn: asyncpg.Connection, user_key: str) -> int:
-        return await conn.fetchval(
-            """
-            SELECT COUNT(*)
-            FROM priorities p
-            WHERE p.user_key = $1
-            """,
-            user_key,
-        )
+        try:
+            resp = await conn.fetchval(
+                """
+                SELECT COUNT(*)
+                FROM priorities p
+                WHERE p.user_key = $1
+                """,
+                user_key,
+            )
+            if not resp:
+                raise NotFoundError(
+                    ValueError(f"No priorities found for user {user_key}")
+                )
+            return resp
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
     async def patch_priority(
@@ -200,7 +232,7 @@ class PriorityService:
 
             for field, value in priority_patch.items():
                 setattr(db_priority, field, value)
-            updated_priority = await conn.execute(
+            updated_priority = await conn.fetchrow(
                 """
                 UPDATE priorities p
                 SET p.name = $1

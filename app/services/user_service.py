@@ -2,56 +2,87 @@ import uuid
 import asyncpg
 from app.core.security import PasswordHasher
 from app.schemas.user import UserCreate, UserUpdate, UserUpdatePassword
+from app.core.errors import AppError, NotFoundError
 
 
 class UserService:
     @staticmethod
-    async def get_users(conn: asyncpg.Connection, skip: int = 0, limit: int = 10):
-        return await conn.fetch(
-            """
-            SELECT u.*
-            FROM users u
-            LIMIT $1 OFFSET $2
-            """,
-            limit,
-            skip,
-        )
+    async def get_users(
+        conn: asyncpg.Connection, skip: int = 0, limit: int = 10
+    ) -> list[asyncpg.Record]:
+        try:
+            resp = await conn.fetch(
+                """
+                SELECT u.*
+                FROM users u
+                LIMIT $1 OFFSET $2
+                """,
+                limit,
+                skip,
+            )
+            if not resp:
+                raise NotFoundError(ValueError("No users found"))
+            return resp
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
-    async def get_user_by_key(conn: asyncpg.Connection, key: str):
-        return await conn.fetchrow(
-            """
-            SELECT u.*
-            FROM users u
-            WHERE u.key = $1
-            """,
-            key,
-        )
+    async def get_user_by_key(conn: asyncpg.Connection, key: str) -> asyncpg.Record:
+        try:
+            resp = await conn.fetchrow(
+                """
+                SELECT u.*
+                FROM users u
+                WHERE u.key = $1
+                """,
+                key,
+            )
+            if not resp:
+                raise NotFoundError(ValueError(f"User with key {key} not found"))
+            return resp
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
-    async def get_user_by_email(conn: asyncpg.Connection, email: str):
-        return await conn.fetchrow(
-            """
-            SELECT u.*
-            FROM users u
-            WHERE u.email = $1
-            """,
-            email,
-        )
+    async def get_user_by_email(conn: asyncpg.Connection, email: str) -> asyncpg.Record:
+        try:
+            resp = await conn.fetchrow(
+                """
+                SELECT u.*
+                FROM users u
+                WHERE u.email = $1
+                """,
+                email,
+            )
+            if not resp:
+                raise NotFoundError(ValueError(f"User with email {email} not found"))
+            return resp
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
-    async def get_user_by_username(conn: asyncpg.Connection, username: str):
-        return await conn.fetchrow(
-            """
-            SELECT u.*
-            FROM users u
-            WHERE u.username = $1
-            """,
-            username,
-        )
+    async def get_user_by_username(
+        conn: asyncpg.Connection, username: str
+    ) -> asyncpg.Record:
+        try:
+            resp = await conn.fetchrow(
+                """
+                SELECT u.*
+                FROM users u
+                WHERE u.username = $1
+                """,
+                username,
+            )
+            if not resp:
+                raise NotFoundError(
+                    ValueError(f"User with username {username} not found")
+                )
+            return resp
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
-    async def create_user(conn: asyncpg.Connection, user: UserCreate):
+    async def create_user(conn: asyncpg.Connection, user: UserCreate) -> asyncpg.Record:
         async with conn.transaction():
             if await UserService.get_user_by_username(conn, user.username):
                 raise ValueError(f"User with username {user.username} already exists")
@@ -76,7 +107,7 @@ class UserService:
     @staticmethod
     async def update_user(
         conn: asyncpg.Connection, key: str, user: UserUpdate, user_key: str
-    ):
+    ) -> asyncpg.Record:
         async with conn.transaction():
             db_user = await UserService.get_user_by_key(conn, key)
             if not db_user:
@@ -93,7 +124,7 @@ class UserService:
                     param_count += 1
             if not update_fields:
                 return db_user
-            updated_user = await conn.execute(
+            updated_user = await conn.fetchrow(
                 f"""
                 UPDATE users u
                 SET {', '.join(update_fields)}
@@ -105,7 +136,7 @@ class UserService:
             return updated_user
 
     @staticmethod
-    async def delete_user(conn: asyncpg.Connection, key: str):
+    async def delete_user(conn: asyncpg.Connection, key: str) -> bool:
         async with conn.transaction():
             db_user = await UserService.get_user_by_key(conn, key)
             if not db_user:
@@ -120,13 +151,19 @@ class UserService:
             return True
 
     @staticmethod
-    async def get_total_users(conn: asyncpg.Connection):
-        return await conn.fetchval(
-            """
-            SELECT COUNT(*)
-            FROM users u
-            """,
-        )
+    async def get_total_users(conn: asyncpg.Connection) -> int:
+        try:
+            resp = await conn.fetchval(
+                """
+                SELECT COUNT(*)
+                FROM users u
+                """,
+            )
+            if not resp:
+                raise NotFoundError(ValueError("No users found"))
+            return resp
+        except Exception as e:
+            raise AppError(e)
 
     @staticmethod
     async def update_user_password(
@@ -141,13 +178,14 @@ class UserService:
             ):
                 raise ValueError("Current password is incorrect")
             db_user["hashed_password"] = PasswordHasher.hash(user.password)
-            await conn.execute(
+            updated_user = await conn.fetchrow(
                 """
                 UPDATE users u
                 SET u.hashed_password = $1
                 WHERE u.key = $2
+                RETURNING *
                 """,
                 db_user["hashed_password"],
                 key,
             )
-            return db_user
+            return updated_user

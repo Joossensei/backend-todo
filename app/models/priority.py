@@ -31,6 +31,7 @@ class Priority(Base):
         UniqueConstraint("user_key", "name", name="uq_priority_user_name"),
         UniqueConstraint("user_key", "order", name="uq_priority_user_order"),
         Index("ix_priority_user_key", "user_key"),
+        Index("ix_priority_user_key_key", "user_key", "key"),
     )
 
     def __str__(self):

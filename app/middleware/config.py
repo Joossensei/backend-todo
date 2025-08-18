@@ -13,6 +13,7 @@ from . import (
     request_logging_middleware,
     db_connection_middleware,
     auth_parsing_middleware,
+    rate_limit_middleware,
 )
 
 
@@ -26,6 +27,7 @@ def get_middleware_stack() -> List[Callable]:
     3. Request logging (logs all requests)
     4. Database connection (provides DB connection)
     5. Authentication (innermost - validates tokens)
+    6. Rate limit (limits requests per second)
 
     Returns:
         List of middleware functions in execution order
@@ -44,6 +46,7 @@ def get_middleware_stack() -> List[Callable]:
         request_logging_middleware,
         db_connection_middleware,
         auth_parsing_middleware,
+        rate_limit_middleware,
     ]
 
 
