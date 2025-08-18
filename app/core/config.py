@@ -27,5 +27,8 @@ class Settings(BaseSettings):
 
     model_config = ConfigDict(env_file=".env", case_sensitive=False)
 
+    db_pool_min: int = Field(1, json_schema_extra={"env": "DB_POOL_MIN"})
+    db_pool_max: int = Field(10, json_schema_extra={"env": "DB_POOL_MAX"})
+
 
 settings = Settings()
