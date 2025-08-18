@@ -64,8 +64,7 @@ Root endpoint. Returns some info about the API
 ```json
 {
   "message": "Welcome to Todo API",
-  "version": "1.0.0",
-  "docs": "/docs"
+  "version": "0.1.0"
 }
 ```
 
@@ -77,8 +76,7 @@ Returns if the API is healthy.
 
 ```json
 {
-  "status": "healthy",
-  "timestamp": "2025-08-12T08:15:26.707059Z"
+  "status": "ok"
 }
 ```
 
@@ -163,7 +161,8 @@ Authorization: Bearer <access_token>
       "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
       "created_at": "2025-08-12T08:26:31.453798Z",
       "updated_at": "2025-08-12T08:26:31.453798Z"
-    }, ...
+    },
+    {}
   ],
   "total": 180,
   "page": 3,
@@ -174,9 +173,9 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### GET `/api/v1/todos/{key}`
+### GET `/api/v1/todo/{key}`
 
-Endpoint for fetching a single todo for the authenticated user
+Get a single todo for the authenticated user
 
 **Path Parameters**
 
@@ -199,7 +198,8 @@ Authorization: Bearer <access_token>
   "priority": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "created_at": "2025-08-12T08:26:31.453798Z",
-  "updated_at": "2025-08-12T08:26:31.453798Z"
+  "updated_at": "2025-08-12T08:26:31.453798Z",
+  "success": true
 }
 ```
 
@@ -236,11 +236,12 @@ Authorization: Bearer <access_token>
   "priority": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "created_at": "2025-08-12T08:26:31.453798Z",
-  "updated_at": null
+  "updated_at": null,
+  "success": true
 }
 ```
 
-### PUT `/api/v1/todos/{key}`
+### PUT `/api/v1/todo/{key}`
 
 Update an entire todo for the authenticated user
 
@@ -276,11 +277,12 @@ Authorization: Bearer <access_token>
   "priority": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "created_at": "2025-08-12T08:26:31.453798Z",
-  "updated_at": "2025-08-12T08:38:19.853610Z"
+  "updated_at": "2025-08-12T08:38:19.853610Z",
+  "success": true
 }
 ```
 
-### PATCH `/api/v1/todos/{key}`
+### PATCH `/api/v1/todo/{key}`
 
 Update a single or multiple fields for a todo of the authenticated user
 
@@ -318,11 +320,12 @@ _Note: All these fields are optional but you must provide at least **one**!_
   "priority": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "created_at": "2025-08-12T08:26:31.453798Z",
-  "updated_at": "2025-08-12T08:38:19.853610Z"
+  "updated_at": "2025-08-12T08:38:19.853610Z",
+  "success": true
 }
 ```
 
-### DELETE `/api/v1/todos/{key}`
+### DELETE `/api/v1/todo/{key}`
 
 Deletes a todo of the authenticated user
 
@@ -340,7 +343,8 @@ Authorization: Bearer <access_token>
 
 ```json
 {
-  "message": "Todo deleted successfully"
+  "message": "Todo deleted successfully",
+  "success": true
 }
 ```
 
@@ -392,7 +396,7 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### GET `/api/v1/priorities/{key}`
+### GET `/api/v1/priority/{key}`
 
 Endpoint for fetching a single priority for the authenticated user
 
@@ -418,7 +422,8 @@ Authorization: Bearer <access_token>
   "order": 1,
   "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "created_at": "2025-08-12T08:26:11.866058Z",
-  "updated_at": "2025-08-12T08:26:11.866058Z"
+  "updated_at": "2025-08-12T08:26:11.866058Z",
+  "success": true
 }
 ```
 
@@ -457,11 +462,12 @@ Authorization: Bearer <access_token>
   "order": 1,
   "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "created_at": "2025-08-12T08:26:11.866058Z",
-  "updated_at": null
+  "updated_at": null,
+  "success": true
 }
 ```
 
-### PUT `/api/v1/priorities/{key}`
+### PUT `/api/v1/priority/{key}`
 
 Update an entire priority for the authenticated user
 
@@ -499,11 +505,12 @@ Authorization: Bearer <access_token>
   "order": 1,
   "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "created_at": "2025-08-12T08:26:11.866058Z",
-  "updated_at": "2025-08-12T08:56:11.240717Z"
+  "updated_at": "2025-08-12T08:56:11.240717Z",
+  "success": true
 }
 ```
 
-### PATCH `/api/v1/priorities/{key}`
+### PATCH `/api/v1/priority/{key}`
 
 Update a single or multiple fields for a Priority of the authenticated user
 
@@ -543,11 +550,12 @@ _Note: All these fields are optional but you must provide at least **one**!_
   "order": 1,
   "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
   "created_at": "2025-08-12T08:26:11.866058Z",
-  "updated_at": "2025-08-12T08:56:11.240717Z"
+  "updated_at": "2025-08-12T08:56:11.240717Z",
+  "success": true
 }
 ```
 
-### DELETE `/api/v1/priorities/{key}`
+### DELETE `/api/v1/priority/{key}`
 
 Deletes a todo of the authenticated user
 
@@ -565,7 +573,8 @@ Authorization: Bearer <access_token>
 
 ```json
 {
-  "message": "Priority deleted successfully"
+  "message": "Priority deleted successfully",
+  "success": true
 }
 ```
 
@@ -615,7 +624,7 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### GET `/api/v1/users/{key}`
+### GET `/api/v1/user/{key}`
 
 Endpoint for fetching a single user
 
@@ -639,7 +648,8 @@ Authorization: Bearer <access_token>
   "email": "test@example.com",
   "is_active": true,
   "created_at": "2025-08-11T07:48:34.301306Z",
-  "updated_at": null
+  "updated_at": null,
+  "success": true
 }
 ```
 
@@ -675,11 +685,12 @@ Authorization: Bearer <access_token>
   "email": "new@user.com",
   "is_active": true,
   "created_at": "2025-08-12T11:45:02.356045Z",
-  "updated_at": null
+  "updated_at": null,
+  "success": true
 }
 ```
 
-### PUT `/api/v1/users/{key}`
+### PUT `/api/v1/user/{key}`
 
 Update an entire user except the Password. For this there is a seperate endpoint.
 
@@ -715,11 +726,12 @@ Authorization: Bearer <access_token>
   "email": "notnew@user.com",
   "is_active": true,
   "created_at": "2025-08-12T11:45:02.356045Z",
-  "updated_at": null
+  "updated_at": null,
+  "success": true
 }
 ```
 
-### PUT `/api/v1/users/{key}/password`
+### PUT `/api/v1/user/{key}/password`
 
 Update the password for the currently authenticated user
 
@@ -746,11 +758,12 @@ Authorization: Bearer <access_token>
 
 ```json
 {
-  "message": "User password updated successfully"
+  "message": "User password updated successfully",
+  "success": true
 }
 ```
 
-### DELETE `/api/v1/users/{key}`
+### DELETE `/api/v1/user/{key}`
 
 Deletes a user
 
@@ -768,7 +781,8 @@ Authorization: Bearer <access_token>
 
 ```json
 {
-  "message": "User deleted successfully"
+  "message": "User deleted successfully",
+  "success": true
 }
 ```
 
@@ -776,26 +790,26 @@ Authorization: Bearer <access_token>
 
 # Rate limit table
 
-| Method     | Path                           | Rate limit                       | Keying basis |
-| ---------- | ------------------------------ | -------------------------------- | ------------ |
-| **GET**    | `/`                            | 60 per minute                    | IP address   |
-| **GET**    | `/health`                      | 60 per minute                    | IP address   |
-| **POST**   | `/api/v1/token`                | 5 per minute and 100 per hour    | IP address   |
-| **GET**    | `/api/v1/users`                | 10 per second and 200 per minute | User key     |
-| **GET**    | `/api/v1/users/{key}`          | 20 per second and 400 per minute | User key     |
-| **POST**   | `/api/v1/users`                | 5 per minute and 50 per hour     | IP address   |
-| **PUT**    | `/api/v1/users/{key}`          | 10 per minute and 100 per hour   | User key     |
-| **PUT**    | `/api/v1/users/{key}/password` | 10 per minute and 100 per hour   | User key     |
-| **DELETE** | `/api/v1/users/{key}`          | 10 per minute and 50 per hour    | User key     |
-| **GET**    | `/api/v1/todos`                | 10 per second and 200 per minute | User key     |
-| **GET**    | `/api/v1/todos/{key}`          | 20 per second and 400 per minute | User key     |
-| **POST**   | `/api/v1/todos`                | 10 per minute and 100 per hour   | User key     |
-| **PUT**    | `/api/v1/todos/{key}`          | 20 per minute and 200 per hour   | User key     |
-| **PATCH**  | `/api/v1/todos/{key}`          | 20 per minute and 200 per hour   | User key     |
-| **DELETE** | `/api/v1/todos/{key}`          | 10 per minute and 50 per hour    | User key     |
-| **GET**    | `/api/v1/priorities`           | 10 per second and 200 per minute | User key     |
-| **GET**    | `/api/v1/priorities/{key}`     | 20 per second and 400 per minute | User key     |
-| **POST**   | `/api/v1/priorities`           | 10 per minute and 100 per hour   | User key     |
-| **PUT**    | `/api/v1/priorities/{key}`     | 20 per minute and 200 per hour   | User key     |
-| **PATCH**  | `/api/v1/priorities/{key}`     | 20 per minute and 200 per hour   | User key     |
-| **DELETE** | `/api/v1/priorities/{key}`     | 10 per minute and 50 per hour    | User key     |
+| Method     | Path                          | Rate limit                       | Keying basis |
+| ---------- | ----------------------------- | -------------------------------- | ------------ |
+| **GET**    | `/`                           | 60 per minute                    | IP address   |
+| **GET**    | `/health`                     | 60 per minute                    | IP address   |
+| **POST**   | `/api/v1/token`               | 5 per minute and 100 per hour    | IP address   |
+| **GET**    | `/api/v1/users`               | 10 per second and 200 per minute | User key     |
+| **GET**    | `/api/v1/user/{key}`          | 20 per second and 400 per minute | User key     |
+| **POST**   | `/api/v1/users`               | 5 per minute and 50 per hour     | IP address   |
+| **PUT**    | `/api/v1/user/{key}`          | 10 per minute and 100 per hour   | User key     |
+| **PUT**    | `/api/v1/user/{key}/password` | 10 per minute and 100 per hour   | User key     |
+| **DELETE** | `/api/v1/user/{key}`          | 10 per minute and 50 per hour    | User key     |
+| **GET**    | `/api/v1/todos`               | 10 per second and 200 per minute | User key     |
+| **GET**    | `/api/v1/todo/{key}`          | 20 per second and 400 per minute | User key     |
+| **POST**   | `/api/v1/todos`               | 10 per minute and 100 per hour   | User key     |
+| **PUT**    | `/api/v1/todo/{key}`          | 20 per minute and 200 per hour   | User key     |
+| **PATCH**  | `/api/v1/todo/{key}`          | 20 per minute and 200 per hour   | User key     |
+| **DELETE** | `/api/v1/todo/{key}`          | 10 per minute and 50 per hour    | User key     |
+| **GET**    | `/api/v1/priorities`          | 10 per second and 200 per minute | User key     |
+| **GET**    | `/api/v1/priority/{key}`      | 20 per second and 400 per minute | User key     |
+| **POST**   | `/api/v1/priorities`          | 10 per minute and 100 per hour   | User key     |
+| **PUT**    | `/api/v1/priority/{key}`      | 20 per minute and 200 per hour   | User key     |
+| **PATCH**  | `/api/v1/priority/{key}`      | 20 per minute and 200 per hour   | User key     |
+| **DELETE** | `/api/v1/priority/{key}`      | 10 per minute and 50 per hour    | User key     |
