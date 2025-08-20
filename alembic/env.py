@@ -19,7 +19,14 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Set the database URL from your app's settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+if not settings.is_test:
+    config.set_main_option("sqlalchemy.url", settings.database_url)
+else:
+    # Convert asyncpg URL to psycopg2 for Alembic (synchronous)
+    test_url = settings.test_database_url.replace(
+        "postgresql+asyncpg://", "postgresql://"
+    )
+    config.set_main_option("sqlalchemy.url", test_url)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

@@ -1,8 +1,11 @@
-from app.schemas.todo import TodoCreate, TodoUpdate
+from app.schemas.todo import TodoCreate, TodoUpdate, TodoPatch
 import uuid
 from typing import Optional
 import asyncpg
 from app.core.errors import AppError, NotFoundError
+import logging
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_SORTS = {
     "incomplete-priority-desc": "t.completed ASC, p.order ASC, t.id DESC",
@@ -27,16 +30,16 @@ class TodoService:
                 WHERE p.key = $1
                 AND p.user_key = $2
                 """,
-                todo["priority"],
+                todo.priority,
                 user_key,
             )
             if not priority:
-                raise ValueError(f"Priority with key {todo['priority']} not found")
+                raise NotFoundError(f"Priority with key {todo.priority} not found")
             db_todo = {
                 "key": str(uuid.uuid4()),
-                "title": todo["title"],
-                "description": todo["description"],
-                "completed": todo["completed"],
+                "title": todo.title,
+                "description": todo.description,
+                "completed": todo.completed,
                 "priority": priority["key"],
                 "user_key": user_key,
             }
@@ -64,7 +67,7 @@ class TodoService:
         try:
             db_todo = await conn.fetchrow(
                 """
-                SELECT t.*
+                SELECT t.id
                 FROM todos t
                 WHERE t.key = $1
                 AND t.user_key = $2
@@ -73,8 +76,10 @@ class TodoService:
                 user_key,
             )
             if not db_todo:
-                raise NotFoundError(ValueError(f"Todo with key {key} not found"))
+                raise NotFoundError(f"Todo with key {key} not found")
             return db_todo["id"]
+        except NotFoundError:
+            raise
         except Exception as e:
             raise AppError(e)
 
@@ -118,11 +123,7 @@ class TodoService:
                     """
             params.extend([skip, limit])
             resp = await conn.fetch(sql, *params)
-            if not resp:
-                raise NotFoundError(ValueError("No todos found"))
             return resp
-        except NotFoundError:
-            raise NotFoundError(ValueError("No todos found"))
         except Exception as e:
             raise AppError(e)
 
@@ -142,7 +143,24 @@ class TodoService:
                 user_key,
             )
             if not resp:
-                raise NotFoundError(ValueError(f"Todo with id {todo_id} not found"))
+                raise NotFoundError(f"Todo with id {todo_id} not found")
+            return resp
+        except NotFoundError:
+            raise
+        except Exception as e:
+            raise AppError(e)
+
+    @staticmethod
+    async def get_total_todos(conn: asyncpg.Connection, user_key: str) -> int:
+        try:
+            resp = await conn.fetchval(
+                """
+                SELECT COUNT(*)
+                FROM todos t
+                WHERE t.user_key = $1
+                """,
+                user_key,
+            )
             return resp
         except Exception as e:
             raise AppError(e)
@@ -159,14 +177,14 @@ class TodoService:
                 WHERE p.key = $1
                 AND p.user_key = $2
                 """,
-                todo_update["priority"],
+                todo_update.priority,
                 user_key,
             )
             if not priority:
-                raise ValueError(
-                    f"Priority with id {todo_update['priority']} not found"
+                raise NotFoundError(
+                    f"Priority with id {todo_update.priority} not found"
                 )
-            todo_update["priority"] = priority["key"]
+            todo_update.priority = priority["key"]
             db_todo = await conn.fetchrow(
                 """
                 SELECT t.*
@@ -183,7 +201,7 @@ class TodoService:
                 values = []
                 param_count = 1
 
-                for field, value in todo_update.items():
+                for field, value in todo_update.model_dump().items():
                     if field in ["title", "description", "completed", "priority"]:
                         update_fields.append(f'"{field}" = ${param_count}')
                         values.append(value)
@@ -223,7 +241,7 @@ class TodoService:
             )
 
             if not db_todo:
-                raise ValueError(f"Todo with id {todo_id} not found")
+                raise NotFoundError(f"Todo with id {todo_id} not found")
 
             await conn.execute(
                 """
@@ -237,28 +255,11 @@ class TodoService:
             return True  # Successfully deleted
 
     @staticmethod
-    async def get_total_todos(conn: asyncpg.Connection, user_key: str) -> int:
-        try:
-            resp = await conn.fetchval(
-                """
-                SELECT COUNT(*)
-                FROM todos t
-                WHERE t.user_key = $1
-                """,
-                user_key,
-            )
-            if not resp:
-                raise NotFoundError(ValueError("No todos found"))
-            return resp
-        except Exception as e:
-            raise AppError(e)
-
-    @staticmethod
     async def patch_todo(
-        conn: asyncpg.Connection, todo_id: int, todo_patch: dict, user_key: str
+        conn: asyncpg.Connection, todo_id: int, todo_patch: TodoPatch, user_key: str
     ) -> asyncpg.Record:
         async with conn.transaction():
-            if "priority" in todo_patch:
+            if todo_patch.priority is not None:
                 priority = await conn.fetchrow(
                     """
                     SELECT p.*
@@ -266,14 +267,13 @@ class TodoService:
                     WHERE p.key = $1
                     AND p.user_key = $2
                     """,
-                    todo_patch["priority"],
+                    todo_patch.priority,
                     user_key,
                 )
                 if not priority:
-                    raise ValueError(
-                        f"Priority with id {todo_patch['priority']} not found"
+                    raise NotFoundError(
+                        f"Priority with id {todo_patch.priority} not found"
                     )
-                todo_patch["priority"] = priority["key"]
             db_todo = await conn.fetchrow(
                 """
                 SELECT t.*
@@ -285,27 +285,18 @@ class TodoService:
                 user_key,
             )
             if not db_todo:
-                raise ValueError(f"Todo with id {todo_id} not found")
-            updated_todo = {}
-            for field, value in todo_patch.items():
-                if field == "priority":
-                    updated_todo[field] = priority["key"]
-                else:
-                    updated_todo[field] = value
-            # Update the todo using conditional query
+                raise NotFoundError(f"Todo with id {todo_id} not found")
+
             update_fields = []
             values = []
             param_count = 3
             values.append(db_todo["id"])
             values.append(user_key)
-            for field, value in todo_patch.items():
-                if field == "priority":
-                    update_fields.append(f'"{field}" = ${param_count}')
-                    values.append(priority["key"])
-                else:
+            for field, value in todo_patch.model_dump().items():
+                if value is not None:
                     update_fields.append(f'"{field}" = ${param_count}')
                     values.append(value)
-                param_count += 1
+                    param_count += 1
             query = f"""
                 UPDATE todos
                 SET {', '.join(update_fields)}

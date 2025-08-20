@@ -20,6 +20,15 @@ _limiters = {
 }
 
 
+def reset_rate_limiters():
+    """Reset all rate limiters - useful for testing"""
+    global _limiters
+    _limiters = {
+        path: AsyncLimiter(rps, period)
+        for path, (rps, period) in ENDPOINT_LIMITS.items()
+    }
+
+
 @web.middleware
 async def rate_limit_middleware(request: web.Request, handler):
     limiter = _limiters.get(request.path)
@@ -29,7 +38,7 @@ async def rate_limit_middleware(request: web.Request, handler):
         return web.json_response(
             {"error": {"code": "rate_limited", "message": "Too Many Requests"}},
             status=429,
-            headers={"Retry-After": str(limiter.available_after)},
+            headers={"Retry-After": str(limiter.time_period)},
         )
     async with limiter:
         return await handler(request)

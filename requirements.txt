@@ -20,6 +20,7 @@ cryptography==45.0.6
 Deprecated==1.2.18
 dnspython==2.7.0
 email_validator==2.2.0
+Faker==37.5.3
 fastapi==0.116.1
 flake8==7.3.0
 frozenlist==1.7.0
@@ -52,6 +53,7 @@ pydantic_core==2.33.2
 pyflakes==3.4.0
 PyJWT==2.10.1
 pytest==8.0.0
+pytest-aiohttp==1.1.0
 pytest-asyncio==0.23.5
 pytest-cov==4.1.0
 python-dotenv==1.1.1
@@ -62,6 +64,7 @@ SQLAlchemy==2.0.42
 starlette==0.47.2
 typing-inspection==0.4.1
 typing_extensions==4.14.1
+tzdata==2025.2
 uvicorn==0.35.0
 wrapt==1.17.3
 yarl==1.20.1

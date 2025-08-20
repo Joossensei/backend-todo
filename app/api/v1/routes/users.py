@@ -14,12 +14,12 @@ def apply_user_routes(routes: web.RouteTableDef) -> None:
     @routes.get("/api/v1/users")
     async def get_users(request: web.Request):
         """Get list of users (admin only)."""
-        return await users.get_users(request)
+        return await users.read_users(request)
 
     @routes.get("/api/v1/user/{key}")
     async def get_user_by_key(request: web.Request):
         """Get a specific user by their key."""
-        return await users.get_user_by_key(request)
+        return await users.read_user(request)
 
     @routes.post("/api/v1/users")
     async def create_user(request: web.Request):

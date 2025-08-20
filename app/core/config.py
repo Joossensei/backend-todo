@@ -7,6 +7,9 @@ from typing import List
 class Settings(BaseSettings):
     # Database settings
     database_url: str = Field(..., json_schema_extra={"env": "DATABASE_URL"})
+    test_database_url: str = Field(..., json_schema_extra={"env": "TEST_DATABASE_URL"})
+
+    is_test: bool = Field(False, json_schema_extra={"env": "IS_TEST"})
 
     # Security settings
     SECRET_KEY: str = Field(..., json_schema_extra={"env": "SECRET_KEY"})

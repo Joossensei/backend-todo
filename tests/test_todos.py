@@ -1,14 +1,42 @@
-from fastapi.testclient import TestClient
+import pytest
+from tests.factories import TodoFactory, PriorityFactory
+from app.schemas.todo import TodoCreate, TodoPatch, TodoUpdate
 
 
-class TestTodosAPI:
+class TestGetTodos:
     """Test cases for todos API endpoints"""
 
-    def test_get_todos_empty(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_get_todos_with_data(self, auth_client, db_conn):
+        user_key = auth_client.session.headers["User-Key"]
+        # Create priorities for the user
+        high_priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
+        low_priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="Low", order=3
+        )
+
+        # Create todos
+        await TodoFactory.create_todo(
+            db_conn, user_key, high_priority["key"], title="Important task"
+        )
+        await TodoFactory.create_todo(
+            db_conn, user_key, low_priority["key"], title="Less important"
+        )
+
+        # Test the endpoint
+        resp = await auth_client.get("/api/v1/todos")
+        assert resp.status == 200
+        data = await resp.json()
+        assert len(data["todos"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_todos_empty(self, auth_client):
         """Test getting todos when database is empty"""
-        response = client.get("/api/v1/todos/")
-        assert response.status_code == 200
-        data = response.json()
+        response = await auth_client.get("/api/v1/todos")
+        assert response.status == 200
+        data = await response.json()
         assert "todos" in data
         assert "total" in data
         assert "page" in data
@@ -20,199 +48,515 @@ class TestTodosAPI:
         assert data["size"] == 0
         assert data["success"] is True
 
-    def test_get_todos_with_pagination(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_get_todos_with_pagination(self, auth_client):
         """Test getting todos with pagination parameters"""
-        response = client.get("/api/v1/todos/?page=2&size=5")
-        assert response.status_code == 200
-        data = response.json()
+        response = await auth_client.get("/api/v1/todos?page=2&size=5")
+        assert response.status == 200
+        data = await response.json()
         assert data["page"] == 2
         assert data["size"] == 0  # No todos in database
 
-    def test_create_todo_success(
-        self, client: TestClient, sample_todo_with_priority_data
-    ):
+
+class TestCreateTodo:
+    @pytest.mark.asyncio
+    async def test_create_todo_success(self, auth_client, db_conn):
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
         """Test creating a todo successfully"""
-        response = client.post("/api/v1/todos/", json=sample_todo_with_priority_data)
-        print(response.json())
-        assert response.status_code == 200
-        data = response.json()
+        todo_data = TodoCreate(
+            title="Test Todo",
+            description="Test Description",
+            priority=priority["key"],
+            completed=False,
+            user_key=user_key,
+        )
+        response = await auth_client.post("/api/v1/todos", json=todo_data.model_dump())
+        assert response.status == 201
+        data = await response.json()
         assert "key" in data
         assert "title" in data
         assert "description" in data
         assert "priority" in data
         assert "completed" in data
         assert "created_at" in data
-        assert data["title"] == sample_todo_with_priority_data["title"]
-        assert data["description"] == sample_todo_with_priority_data["description"]
-        assert data["priority"] == sample_todo_with_priority_data["priority"]
-        assert data["completed"] == sample_todo_with_priority_data["completed"]
+        assert data["title"] == todo_data.title
+        assert data["description"] == todo_data.description
+        assert data["priority"] == todo_data.priority
+        assert data["completed"] == todo_data.completed
 
-    def test_create_todo_invalid_data(self, client: TestClient):
+
+class TestCreateValidateTodo:
+    @pytest.mark.asyncio
+    async def test_create_todo_empty_title(self, auth_client, db_conn):
         """Test creating a todo with invalid data"""
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
         invalid_data = {
             "title": "",  # Empty title
             "description": "Test Description",
-            "priority": "non-existent-priority-key",
+            "priority": priority["key"],
             "completed": False,
+            "user_key": user_key,
         }
-        response = client.post("/api/v1/todos/", json=invalid_data)
-        assert response.status_code == 422  # Validation error for empty title
+        response = await auth_client.post("/api/v1/todos", json=invalid_data)
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+        assert data["error"]["message"] == "Title is required"
 
-    def test_create_todo_missing_required_fields(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_create_todo_invalid_title_length(self, auth_client, db_conn):
+        """Test creating a todo with invalid title length"""
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
+        invalid_data = {
+            "title": "A" * 101,  # Invalid title length
+            "description": "Test Description",
+            "priority": priority["key"],
+            "completed": False,
+            "user_key": user_key,
+        }
+        response = await auth_client.post("/api/v1/todos", json=invalid_data)
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+        assert data["error"]["message"] == "Title must be less than 100 characters"
+
+    @pytest.mark.asyncio
+    async def test_create_todo_missing_required_fields(self, auth_client):
         """Test creating a todo with missing required fields"""
         invalid_data = {"description": "Test Description", "completed": False}
-        response = client.post("/api/v1/todos/", json=invalid_data)
-        assert response.status_code == 422  # Validation error
+        response = await auth_client.post("/api/v1/todos", json=invalid_data)
+        assert response.status == 422  # Validation error
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+        assert data["error"]["message"] == "All fields are required"
 
-    def test_get_todo_by_key_success(
-        self, client: TestClient, sample_todo_with_priority_data
-    ):
-        """Test getting a todo by key successfully"""
-        # First create a todo
-        create_response = client.post(
-            "/api/v1/todos/", json=sample_todo_with_priority_data
+    @pytest.mark.asyncio
+    async def test_create_todo_invalid_priority(self, auth_client):
+        """Test creating a todo with invalid priority"""
+        invalid_data = TodoCreate(
+            title="Test Todo",
+            priority="invalid",
+            completed=False,
+            user_key="test",
         )
-        assert create_response.status_code == 200
-        created_todo = create_response.json()
+        response = await auth_client.post(
+            "/api/v1/todos", json=invalid_data.model_dump()
+        )
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+        assert data["error"]["message"] == "Priority not found"
+
+    @pytest.mark.asyncio
+    async def test_create_todo_invalid_completed(self, auth_client, db_conn):
+        """Test creating a todo with invalid completed"""
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
+        invalid_data = {
+            "title": "Test Todo",
+            "priority": priority["key"],
+            "completed": None,
+            "user_key": user_key,
+        }
+        response = await auth_client.post("/api/v1/todos", json=invalid_data)
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+        assert data["error"]["message"] == "Completed is required"
+
+
+class TestGetTodoByKey:
+    @pytest.mark.asyncio
+    async def test_get_todo_by_key_success(self, auth_client, db_conn):
+        """Test getting a todo by key successfully"""
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
+        todo_data = TodoCreate(
+            title="Test Todo",
+            description="Test Description",
+            priority=priority["key"],
+            completed=False,
+            user_key=user_key,
+        )
+        create_response = await auth_client.post(
+            "/api/v1/todos", json=todo_data.model_dump()
+        )
+        assert create_response.status == 201
+        created_todo = await create_response.json()
         todo_key = created_todo["key"]
 
-        # Then get the todo by key
-        response = client.get(f"/api/v1/todos/{todo_key}")
-        assert response.status_code == 200
-        data = response.json()
+        response = await auth_client.get(f"/api/v1/todo/{todo_key}")
+        assert response.status == 200
+        data = await response.json()
         assert data["key"] == todo_key
-        assert data["title"] == sample_todo_with_priority_data["title"]
+        assert data["title"] == todo_data.title
 
-    def test_get_todo_by_key_not_found(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_get_todo_by_key_not_found(self, auth_client):
         """Test getting a todo by non-existent key"""
-        response = client.get("/api/v1/todos/non-existent-key")
-        assert response.status_code == 404
-        data = response.json()
-        assert "detail" in data
-        assert "not found" in data["detail"]
+        response = await auth_client.get("/api/v1/todo/non-existent-key")
+        assert response.status == 404
+        data = await response.json()
+        assert "error" in data
+        assert "code" in data["error"]
+        assert data["error"]["code"] == "not_found"
+        assert data["error"]["message"] == "Todo with key non-existent-key not found"
 
-    def test_update_todo_success(
+
+class TestUpdateTodo:
+    @pytest.mark.asyncio
+    async def test_update_todo_success(
         self,
-        client: TestClient,
-        sample_todo_with_priority_data,
-        sample_todo_update_data,
+        auth_client,
+        db_conn,
     ):
         """Test updating a todo successfully"""
-        # First create a todo
-        create_response = client.post(
-            "/api/v1/todos/", json=sample_todo_with_priority_data
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
         )
-        assert create_response.status_code == 200
-        created_todo = create_response.json()
+        todo_data = TodoCreate(
+            title="Test Todo",
+            description="Test Description",
+            priority=priority["key"],
+            completed=False,
+            user_key=user_key,
+        )
+        todo_update_data = TodoUpdate(
+            title="Updated Todo",
+            description="Updated Description",
+            priority=priority["key"],
+            completed=True,
+        )
+        create_response = await auth_client.post(
+            "/api/v1/todos", json=todo_data.model_dump()
+        )
+        assert create_response.status == 201
+        created_todo = await create_response.json()
         todo_key = created_todo["key"]
 
         # Then update the todo
-        response = client.put(f"/api/v1/todos/{todo_key}", json=sample_todo_update_data)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["title"] == sample_todo_update_data["title"]
-        assert data["description"] == sample_todo_update_data["description"]
-        assert data["priority"] == sample_todo_update_data["priority"]
-        assert data["completed"] == sample_todo_update_data["completed"]
+        response = await auth_client.put(
+            f"/api/v1/todo/{todo_key}", json=todo_update_data.model_dump()
+        )
+        assert response.status == 200
+        data = await response.json()
+        assert data["title"] == todo_update_data.title
+        assert data["description"] == todo_update_data.description
+        assert data["priority"] == todo_update_data.priority
+        assert data["completed"] == todo_update_data.completed
 
-    def test_update_todo_not_found(self, client: TestClient, sample_todo_update_data):
+    @pytest.mark.asyncio
+    async def test_update_todo_not_found(self, auth_client, db_conn):
         """Test updating a non-existent todo"""
-        response = client.put(
-            "/api/v1/todos/non-existent-key", json=sample_todo_update_data
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
         )
-        assert response.status_code == 404
-        data = response.json()
-        assert "detail" in data
-        assert "not found" in data["detail"]
+        todo_update_data = TodoUpdate(
+            title="Updated Todo",
+            description="Updated Description",
+            priority=priority["key"],
+            completed=True,
+        )
+        response = await auth_client.put(
+            "/api/v1/todo/non-existent-key", json=todo_update_data.model_dump()
+        )
+        assert response.status == 404
+        data = await response.json()
+        assert "error" in data
+        assert data["error"]["code"] == "not_found"
+        assert data["error"]["message"] == "Todo with key non-existent-key not found"
 
-    def test_patch_todo_success(
-        self, client: TestClient, sample_todo_with_priority_data
-    ):
-        """Test patching a todo successfully"""
-        # First create a todo
-        create_response = client.post(
-            "/api/v1/todos/", json=sample_todo_with_priority_data
+
+class TestUpdateValidateTodo:
+    @pytest.mark.asyncio
+    async def test_update_todo_invalid_priority(self, auth_client, db_conn):
+        """Test updating a todo with invalid priority"""
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
         )
-        assert create_response.status_code == 200
-        created_todo = create_response.json()
+        # Create a todo
+        todo_data = TodoCreate(
+            title="Test Todo",
+            description="Test Description",
+            priority=priority["key"],
+            completed=False,
+            user_key=user_key,
+        )
+        create_response = await auth_client.post(
+            "/api/v1/todos", json=todo_data.model_dump()
+        )
+        assert create_response.status == 201
+        created_todo = await create_response.json()
+        todo_key = created_todo["key"]
+
+        # Then update the todo
+        invalid_data = {
+            "title": "Test Todo",
+            "description": "Test Description",
+            "priority": "invalid",
+            "completed": False,
+        }
+        response = await auth_client.put(f"/api/v1/todo/{todo_key}", json=invalid_data)
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+        assert data["error"]["message"] == "Priority not found"
+
+    @pytest.mark.asyncio
+    async def test_update_todo_invalid_title(self, auth_client, db_conn):
+        """Test updating a todo with invalid title"""
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
+        todo_data = TodoCreate(
+            title="Test Todo",
+            description="Test Description",
+            priority=priority["key"],
+            completed=False,
+            user_key=user_key,
+        )
+        create_response = await auth_client.post(
+            "/api/v1/todos", json=todo_data.model_dump()
+        )
+        assert create_response.status == 201
+        created_todo = await create_response.json()
+        todo_key = created_todo["key"]
+
+        # Then update the todo
+        invalid_data = {
+            "title": "A" * 101,
+            "description": "Test Description",
+            "priority": priority["key"],
+            "completed": False,
+            "user_key": user_key,
+        }
+        response = await auth_client.put(f"/api/v1/todo/{todo_key}", json=invalid_data)
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+        assert data["error"]["message"] == "Title must be less than 100 characters"
+
+    @pytest.mark.asyncio
+    async def test_update_todo_invalid_description(self, auth_client, db_conn):
+        """Test updating a todo with invalid description"""
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
+        todo_data = TodoCreate(
+            title="Test Todo",
+            description="Test Description",
+            priority=priority["key"],
+            completed=False,
+            user_key=user_key,
+        )
+        create_response = await auth_client.post(
+            "/api/v1/todos", json=todo_data.model_dump()
+        )
+        assert create_response.status == 201
+        created_todo = await create_response.json()
+        todo_key = created_todo["key"]
+
+        # Then update the todo
+        invalid_data = {
+            "title": "Test Todo",
+            "description": "A" * 1001,
+            "priority": priority["key"],
+            "completed": False,
+            "user_key": user_key,
+        }
+        response = await auth_client.put(f"/api/v1/todo/{todo_key}", json=invalid_data)
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+        assert (
+            data["error"]["message"] == "Description must be less than 1000 characters"
+        )
+
+
+class TestPatchTodo:
+    @pytest.mark.asyncio
+    async def test_patch_todo_success(self, auth_client, db_conn):
+        """Test patching a todo successfully"""
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
+        todo_data = TodoCreate(
+            title="Test Todo",
+            description="Test Description",
+            priority=priority["key"],
+            completed=False,
+            user_key=user_key,
+        )
+        create_response = await auth_client.post(
+            "/api/v1/todos", json=todo_data.model_dump()
+        )
+        assert create_response.status == 201
+        created_todo = await create_response.json()
         todo_key = created_todo["key"]
 
         # Then patch the todo
-        patch_data = {"title": "Patched Title", "completed": True}
-        response = client.patch(f"/api/v1/todos/{todo_key}", json=patch_data)
-        assert response.status_code == 200
-        data = response.json()
+        patch_data = TodoPatch(
+            title="Patched Title",
+            completed=True,
+        )
+        response = await auth_client.patch(
+            f"/api/v1/todo/{todo_key}", json=patch_data.model_dump()
+        )
+        assert response.status == 200
+        data = await response.json()
         assert data["title"] == "Patched Title"
         assert data["completed"] is True
-        # Other fields should remain unchanged
-        assert data["description"] == sample_todo_with_priority_data["description"]
-        assert data["priority"] == sample_todo_with_priority_data["priority"]
+        assert data["description"] == todo_data.description
+        assert data["priority"] == todo_data.priority
 
-    def test_patch_todo_not_found(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_patch_todo_not_found(self, auth_client):
         """Test patching a non-existent todo"""
-        patch_data = {"title": "Patched Title"}
-        response = client.patch("/api/v1/todos/non-existent-key", json=patch_data)
-        assert response.status_code == 404
-        data = response.json()
-        assert "detail" in data
-        assert "not found" in data["detail"]
-
-    def test_delete_todo_success(
-        self, client: TestClient, sample_todo_with_priority_data
-    ):
-        """Test deleting a todo successfully"""
-        # First create a todo
-        create_response = client.post(
-            "/api/v1/todos/", json=sample_todo_with_priority_data
+        patch_data = TodoPatch(
+            title="Patched Title",
+            completed=True,
         )
-        assert create_response.status_code == 200
-        created_todo = create_response.json()
+        response = await auth_client.patch(
+            "/api/v1/todo/non-existent-key", json=patch_data.model_dump()
+        )
+        assert response.status == 404
+        data = await response.json()
+        assert "error" in data
+        assert data["error"]["code"] == "not_found"
+        assert data["error"]["message"] == "Todo with key non-existent-key not found"
+
+
+class TestPatchValidateTodo:
+    @pytest.mark.asyncio
+    async def test_patch_todo_invalid_title(self, auth_client, db_conn):
+        """Test patching a todo with invalid title"""
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
+        todo_data = TodoCreate(
+            title="Test Todo",
+            description="Test Description",
+            priority=priority["key"],
+            completed=False,
+            user_key=user_key,
+        )
+        create_response = await auth_client.post(
+            "/api/v1/todos", json=todo_data.model_dump()
+        )
+        assert create_response.status == 201
+        created_todo = await create_response.json()
+        todo_key = created_todo["key"]
+
+        # Then patch the todo
+        invalid_data = {
+            "title": "A" * 101,
+            "completed": True,
+        }
+        response = await auth_client.patch(
+            f"/api/v1/todo/{todo_key}", json=invalid_data
+        )
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+        assert data["error"]["message"] == "Title must be less than 100 characters"
+
+    @pytest.mark.asyncio
+    async def test_patch_todo_invalid_priority(self, auth_client, db_conn):
+        """Test patching a todo with invalid priority"""
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
+        todo_data = TodoCreate(
+            title="Test Todo",
+            description="Test Description",
+            priority=priority["key"],
+            completed=False,
+            user_key=user_key,
+        )
+        create_response = await auth_client.post(
+            "/api/v1/todos", json=todo_data.model_dump()
+        )
+        assert create_response.status == 201
+        created_todo = await create_response.json()
+        todo_key = created_todo["key"]
+
+        # Then patch the todo
+        invalid_data = {
+            "title": "Test Todo",
+            "description": "Test Description",
+            "priority": "invalid",
+            "completed": False,
+        }
+        response = await auth_client.patch(
+            f"/api/v1/todo/{todo_key}", json=invalid_data
+        )
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+        assert data["error"]["message"] == "Priority not found"
+
+
+class TestDeleteTodo:
+    @pytest.mark.asyncio
+    async def test_delete_todo_success(self, auth_client, db_conn):
+        """Test deleting a todo successfully"""
+        user_key = auth_client.session.headers["User-Key"]
+        priority = await PriorityFactory.create_priority(
+            db_conn, user_key, name="High", order=1
+        )
+        todo_data = TodoCreate(
+            title="Test Todo",
+            description="Test Description",
+            priority=priority["key"],
+            completed=False,
+            user_key=user_key,
+        )
+        create_response = await auth_client.post(
+            "/api/v1/todos", json=todo_data.model_dump()
+        )
+        assert create_response.status == 201
+        created_todo = await create_response.json()
         todo_key = created_todo["key"]
 
         # Then delete the todo
-        response = client.delete(f"/api/v1/todos/{todo_key}")
-        assert response.status_code == 200
-        data = response.json()
-        assert "message" in data
-        assert "deleted successfully" in data["message"]
+        response = await auth_client.delete(f"/api/v1/todo/{todo_key}")
+        assert response.status == 204
 
         # Verify the todo is deleted
-        get_response = client.get(f"/api/v1/todos/{todo_key}")
-        assert get_response.status_code == 404
+        get_response = await auth_client.get(f"/api/v1/todo/{todo_key}")
+        assert get_response.status == 404
+        data = await get_response.json()
+        assert "error" in data
+        assert data["error"]["code"] == "not_found"
+        assert data["error"]["message"] == f"Todo with key {todo_key} not found"
 
-    def test_delete_todo_not_found(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_delete_todo_not_found(self, auth_client):
         """Test deleting a non-existent todo"""
-        response = client.delete("/api/v1/todos/non-existent-key")
-        assert response.status_code == 404
-        data = response.json()
-        assert "detail" in data
-        assert "not found" in data["detail"]
-
-    def test_get_todos_with_data(self, client: TestClient, sample_priority_data):
-        """Test getting todos when there is data in the database"""
-        # Create multiple todos with different priorities
-        for i in range(3):
-            # Create a new priority for each todo
-            priority_data = sample_priority_data.copy()
-            priority_data["name"] = f"Priority {i+1}"
-            priority_response = client.post("/api/v1/priorities/", json=priority_data)
-            assert priority_response.status_code == 200
-            priority_key = priority_response.json()["key"]
-
-            # Create todo with this priority
-            todo_data = {
-                "title": f"Todo {i+1}",
-                "description": "Test Description",
-                "priority": priority_key,
-                "completed": False,
-            }
-            response = client.post("/api/v1/todos/", json=todo_data)
-            assert response.status_code == 200
-
-        # Get all todos
-        response = client.get("/api/v1/todos/")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["todos"]) == 3
-        assert data["total"] == 3
-        assert data["success"] is True
+        response = await auth_client.delete("/api/v1/todo/non-existent-key")
+        assert response.status == 404
+        data = await response.json()
+        assert "error" in data
+        assert data["error"]["code"] == "not_found"
+        assert data["error"]["message"] == "Todo with key non-existent-key not found"

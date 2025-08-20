@@ -1,5 +1,5 @@
 # db/database.py
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy import MetaData
 
 # Create the base class for all models

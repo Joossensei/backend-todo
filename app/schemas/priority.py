@@ -5,20 +5,28 @@ from datetime import datetime
 
 
 class PriorityCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(...)
     description: Optional[str] = None
-    color: str = Field(..., min_length=1, max_length=100)
-    icon: Optional[str] = Field(None, max_length=100)
-    order: int = Field(1, ge=1)
+    color: str = Field(...)
+    icon: str = Field(...)
+    order: int = Field(1)
     user_key: str
 
 
 class PriorityUpdate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(...)
     description: Optional[str] = None
-    color: str = Field(..., min_length=1, max_length=100)
-    icon: Optional[str] = Field(None, max_length=100)
-    order: int = Field(1, ge=1)
+    color: str = Field(...)
+    icon: Optional[str] = Field(None)
+    order: int = Field(1)
+
+
+class PriorityPatch(BaseModel):
+    name: Optional[str] = Field(None)
+    description: Optional[str] = None
+    color: Optional[str] = Field(None)
+    icon: Optional[str] = Field(None)
+    order: Optional[int] = Field(None)
 
 
 class PriorityResponse(BaseModel):

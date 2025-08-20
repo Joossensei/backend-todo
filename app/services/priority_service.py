@@ -1,9 +1,12 @@
 # app/services/priority_service.py
 from app.models.priority import Priority
-from app.schemas.priority import PriorityCreate
+from app.schemas.priority import PriorityCreate, PriorityPatch, PriorityUpdate
 import uuid
 import asyncpg
-from app.core.errors import AppError, NotFoundError
+from app.core.errors import AppError, NotFoundError, ValidationError
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PriorityService:
@@ -12,7 +15,7 @@ class PriorityService:
         conn: asyncpg.Connection, priority: PriorityCreate, user_key: str
     ) -> Priority:
         async with conn.transaction():
-            priority["key"] = str(uuid.uuid4())
+            priority_key = str(uuid.uuid4())
             db_priority = await conn.fetchrow(
                 """
                 INSERT INTO priorities
@@ -31,12 +34,12 @@ class PriorityService:
                         , $6
                         , $7) RETURNING *
                 """,
-                priority["key"],
-                priority["name"],
-                priority["description"],
-                priority["color"],
-                priority["icon"],
-                priority["order"],
+                priority_key,
+                priority.name,
+                priority.description,
+                priority.color,
+                priority.icon,
+                priority.order,
                 user_key,
             )
             return db_priority
@@ -58,8 +61,10 @@ class PriorityService:
                 user_key,
             )
             if not db_priority:
-                raise NotFoundError(ValueError(f"Priority with key {key} not found"))
+                raise NotFoundError(f"Priority with key {key} not found")
             return db_priority["id"]
+        except NotFoundError:
+            raise
         except Exception as e:
             raise AppError(e)
 
@@ -81,10 +86,6 @@ class PriorityService:
                 skip,
                 limit,
             )
-            if not resp:
-                raise NotFoundError(
-                    ValueError(f"No priorities found for user {user_key}")
-                )
             return resp
         except Exception as e:
             raise AppError(e)
@@ -116,7 +117,7 @@ class PriorityService:
     async def update_priority(
         conn: asyncpg.Connection,
         priority_id: int,
-        priority_update: dict,
+        priority_update: PriorityUpdate,
         user_key: str,
     ) -> Priority:
         async with conn.transaction():
@@ -132,14 +133,14 @@ class PriorityService:
                 user_key,
             )
             if not db_priority:
-                raise ValueError(f"Priority with id {priority_id} not found")
+                raise NotFoundError(f"Priority with id {priority_id} not found")
 
             # Build dynamic update query
             update_fields = []
             values = []
             param_count = 1
 
-            for field, value in priority_update.items():
+            for field, value in priority_update.model_dump().items():
                 if field in ["name", "description", "color", "icon", "order"]:
                     update_fields.append(f'"{field}" = ${param_count}')
                     values.append(value)
@@ -180,7 +181,7 @@ class PriorityService:
             )
 
             if not db_priority:
-                raise ValueError(f"Priority with id {priority_id} not found")
+                raise NotFoundError(f"Priority with id {priority_id} not found")
 
             await conn.execute(
                 """
@@ -204,17 +205,17 @@ class PriorityService:
                 """,
                 user_key,
             )
-            if not resp:
-                raise NotFoundError(
-                    ValueError(f"No priorities found for user {user_key}")
-                )
-            return resp
+            # COUNT(*) returns 0 for empty sets; return that instead of raising
+            return int(resp or 0)
         except Exception as e:
             raise AppError(e)
 
     @staticmethod
     async def patch_priority(
-        conn: asyncpg.Connection, priority_id: int, priority_patch: dict, user_key: str
+        conn: asyncpg.Connection,
+        priority_id: int,
+        priority_patch: PriorityPatch,
+        user_key: str,
     ) -> Priority:
         async with conn.transaction():
             db_priority = await conn.fetchrow(
@@ -228,61 +229,32 @@ class PriorityService:
                 user_key,
             )
             if not db_priority:
-                raise ValueError(f"Priority with id {priority_id} not found")
-
-            for field, value in priority_patch.items():
-                setattr(db_priority, field, value)
-            updated_priority = await conn.fetchrow(
-                """
-                UPDATE priorities p
-                SET p.name = $1
-                    , p.description = $2
-                    , p.color = $3
-                    , p.icon = $4
-                    , p.order = $5
-                WHERE p.id = $6
-                AND p.user_key = $7
+                raise NotFoundError(f"Priority with id {priority_id} not found")
+            logger.info("Check 233")
+            # Dynamic
+            update_fields = []
+            values = []
+            param_count = 1
+            logger.info("Check 238")
+            logger.info("Model Dump items:")
+            logger.info(priority_patch.model_dump())
+            for field, value in priority_patch.model_dump().items():
+                if value is not None:
+                    update_fields.append(f'"{field}" = ${param_count}')
+                    values.append(value)
+                    param_count += 1
+            if not update_fields:
+                raise ValidationError(custom_message="No valid fields to update")
+            # Add the WHERE clause parameters
+            values.extend([priority_id, user_key])
+            logger.info("Check 247")
+            # Execute the update
+            query = f"""
+                UPDATE priorities
+                SET {', '.join(update_fields)}
+                WHERE id = ${param_count} AND user_key = ${param_count + 1}
                 RETURNING *
-                """,
-                db_priority.name,
-                db_priority.description,
-                db_priority.color,
-                db_priority.icon,
-                db_priority.order,
-                db_priority.id,
-                user_key,
-            )
+                """
+            logger.info("Check 255")
+            updated_priority = await conn.fetchrow(query, *values)
             return updated_priority
-
-    @staticmethod
-    async def check_availability(
-        conn: asyncpg.Connection, priority: PriorityCreate, user_key: str
-    ) -> tuple[bool, str]:
-        async with conn.transaction():
-            # Make sure the name is not already taken
-            db_priority = await conn.fetchrow(
-                """
-                SELECT p.*
-                FROM priorities p
-                WHERE p.name = $1
-                AND p.user_key = $2
-                """,
-                priority.name,
-                user_key,
-            )
-            if db_priority:
-                return False, "Name already taken"
-            # Make sure the order is not already taken
-            db_priority = await conn.fetchrow(
-                """
-                SELECT p.*
-                FROM priorities p
-                WHERE p.order = $1
-                AND p.user_key = $2
-                """,
-                priority.order,
-                user_key,
-            )
-            if db_priority:
-                return False, "Order already taken"
-            return True, "Available"

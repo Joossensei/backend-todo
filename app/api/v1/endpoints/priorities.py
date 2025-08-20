@@ -3,25 +3,54 @@ from aiohttp import web
 from app.services.priority_service import PriorityService
 from app.services.auth_service import AuthService
 from app.utils.mapping import record_to_dict
-from app.schemas.priority import PriorityResponse, PriorityListResponse
-from app.utils.pagination import build_pagination_link
-from app.core.errors import AppError, NotFoundError
+from app.schemas.priority import (
+    PriorityResponse,
+    PriorityListResponse,
+    PriorityCreate,
+    PriorityPatch,
+    PriorityUpdate,
+)
+from app.utils.pagination import build_pagination_link, parse_pagination
+from app.core.errors import AppError, NotFoundError, UnauthorizedError, ValidationError
 import logging
+from app.middleware.authentication import require_auth
+from app.validators.priority_validator import (
+    PriorityCreateValidator,
+    PriorityUpdateValidator,
+    PriorityPatchValidator,
+)
+import pydantic
 
 logger = logging.getLogger(__name__)
 
 
+@require_auth()
 async def get_priorities(request: web.Request):
     db = request["conn"]
     username = request["user"]
+    if not username:
+        raise UnauthorizedError(ValueError("Unauthorized"))
     current_user = await AuthService.get_user(db, username)
-    page = request.query.get("page", 1)
-    size = request.query.get("size", 10)
+    page, size, skip = parse_pagination(
+        request.query.get("page"), request.query.get("size")
+    )
     try:
-        skip = (page - 1) * size
         priorities = await PriorityService.get_priorities(
             db, current_user["key"], skip, size
         )
+        if not priorities:
+            return web.json_response(
+                PriorityListResponse(
+                    priorities=[],
+                    total=0,
+                    page=page,
+                    size=0,
+                    success=True,
+                    next_link=None,
+                    prev_link=None,
+                ).model_dump(),
+                status=200,
+            )
         total = await PriorityService.get_total_priorities(db, current_user["key"])
         items = [PriorityResponse(**record_to_dict(p)) for p in priorities]
         return web.json_response(
@@ -29,17 +58,31 @@ async def get_priorities(request: web.Request):
                 priorities=items,
                 total=total,
                 page=page,
-                size=size,
+                size=len(items),
                 success=True,
                 next_link=build_pagination_link(request.url, page + 1, size, total),
                 prev_link=build_pagination_link(request.url, page - 1, size, total),
             ).model_dump(),
             status=200,
         )
+    except UnauthorizedError as e:
+        logger.error(f"Unauthorized error: {e}")
+        raise UnauthorizedError(e)
+    except NotFoundError as e:
+        logger.error(f"Not found error: {e}")
+        raise
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise
+    except pydantic.ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise ValidationError(e.errors())
     except Exception as e:
+        logger.error(f"Error getting priorities: {e}")
         raise AppError(e)
 
 
+@require_auth()
 async def get_priority_by_key(request: web.Request):
     db = request["conn"]
     username = request["user"]
@@ -49,6 +92,8 @@ async def get_priority_by_key(request: web.Request):
         priority_id = await PriorityService.fetch_priority_id_by_key(
             db, key, current_user["key"]
         )
+        if not priority_id:
+            raise NotFoundError(f"Priority with key {key} not found")
         priority = await PriorityService.get_priority(
             db, priority_id, current_user["key"]
         )
@@ -56,57 +101,107 @@ async def get_priority_by_key(request: web.Request):
             PriorityResponse(**record_to_dict(priority)).model_dump(),
             status=200,
         )
-    except ValueError:
-        raise NotFoundError(ValueError(f"Priority with key {key} not found"))
+    except UnauthorizedError as e:
+        logger.error(f"Unauthorized error: {e}")
+        raise UnauthorizedError(e)
+    except NotFoundError as e:
+        logger.error(f"Not found error: {e}")
+        raise
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise
+    except pydantic.ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise ValidationError(e.errors())
     except Exception as e:
+        logger.error(f"Error getting priority by key: {e}")
         raise AppError(e)
 
 
+@require_auth()
 async def create_priority(request: web.Request):
     db = request["conn"]
     username = request["user"]
     current_user = await AuthService.get_user(db, username)
-    priority = await request.json()
+    priority_data = await request.json()
     try:
+        # Check if all fields are present
+        if not all(
+            key in priority_data
+            for key in ["name", "color", "icon", "order", "user_key"]
+        ):
+            raise ValidationError(custom_message="All fields are required")
+        priority_model = PriorityCreate(**priority_data)
+        priority_model = PriorityCreateValidator.validate_priority(
+            priority_model, current_user["key"]
+        )
         priority = await PriorityService.create_priority(
-            db, priority, current_user["key"]
+            db, priority_model, current_user["key"]
         )
         return web.json_response(
             PriorityResponse(**record_to_dict(priority)).model_dump(),
             status=201,
         )
-    except ValueError as e:
-        raise AppError(e)
+    except UnauthorizedError as e:
+        logger.error(f"Unauthorized error: {e}")
+        raise UnauthorizedError(e)
+    except NotFoundError as e:
+        logger.error(f"Not found error: {e}")
+        raise
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise
+    except pydantic.ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise ValidationError(e.errors())
     except Exception as e:
+        logger.error(f"Error creating priority: {e}")
         raise AppError(e)
 
 
+@require_auth()
 async def update_priority(request: web.Request):
     db = request["conn"]
     username = request["user"]
     current_user = await AuthService.get_user(db, username)
     key = request.match_info["key"]
-    priority = await request.json()
+    priority_data = await request.json()
     try:
         priority_id = await PriorityService.fetch_priority_id_by_key(
             db, key, current_user["key"]
         )
-    except ValueError:
-        raise NotFoundError(ValueError(f"Priority with key {key} not found"))
+    except NotFoundError:
+        raise
     except Exception as e:
         raise AppError(e)
     try:
+        priority_model = PriorityUpdate(**priority_data)
+        priority_model = PriorityUpdateValidator.validate_priority(priority_model)
         priority = await PriorityService.update_priority(
-            db, priority_id, priority, current_user["key"]
+            db, priority_id, priority_model, current_user["key"]
         )
         return web.json_response(
             PriorityResponse(**record_to_dict(priority)).model_dump(),
             status=200,
         )
+    except UnauthorizedError as e:
+        logger.error(f"Unauthorized error: {e}")
+        raise UnauthorizedError(e)
+    except NotFoundError as e:
+        logger.error(f"Not found error: {e}")
+        raise
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise
+    except pydantic.ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise ValidationError(e.errors())
     except Exception as e:
+        logger.error(f"Error updating priority: {e}")
         raise AppError(e)
 
 
+@require_auth()
 async def patch_priority(request: web.Request):
     db = request["conn"]
     username = request["user"]
@@ -117,23 +212,39 @@ async def patch_priority(request: web.Request):
         priority_id = await PriorityService.fetch_priority_id_by_key(
             db, key, current_user["key"]
         )
-    except ValueError:
-        raise NotFoundError(ValueError(f"Priority with key {key} not found"))
+    except NotFoundError:
+        raise
     except Exception as e:
         raise AppError(e)
+
     try:
-        # Only update fields that are provided
+        priority_model = PriorityPatch(**priority_patch)
+        priority_model = PriorityPatchValidator.validate_priority(priority_model)
         updated_priority = await PriorityService.patch_priority(
-            db, priority_id, priority_patch, current_user["key"]
+            db, priority_id, priority_model, current_user["key"]
         )
         return web.json_response(
             PriorityResponse(**record_to_dict(updated_priority)).model_dump(),
             status=200,
         )
+    except UnauthorizedError as e:
+        logger.error(f"Unauthorized error: {e}")
+        raise UnauthorizedError(e)
+    except NotFoundError as e:
+        logger.error(f"Not found error: {e}")
+        raise
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise
+    except pydantic.ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise ValidationError(e.errors())
     except Exception as e:
+        logger.error(f"Error patching priority: {e}")
         raise AppError(e)
 
 
+@require_auth()
 async def delete_priority(request: web.Request):
     db = request["conn"]
     username = request["user"]
@@ -143,11 +254,20 @@ async def delete_priority(request: web.Request):
         priority_id = await PriorityService.fetch_priority_id_by_key(
             db, key, current_user["key"]
         )
-        if await PriorityService.delete_priority(db, priority_id, current_user["key"]):
-            return web.Response(status=204)
-        else:
-            raise AppError(ValueError("Failed to delete priority"))
-    except ValueError:
-        raise NotFoundError(ValueError(f"Priority with key {key} not found"))
+        await PriorityService.delete_priority(db, priority_id, current_user["key"])
+        return web.Response(status=204)
+    except UnauthorizedError as e:
+        logger.error(f"Unauthorized error: {e}")
+        raise UnauthorizedError(e)
+    except NotFoundError as e:
+        logger.error(f"Not found error: {e}")
+        raise
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise
+    except pydantic.ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise ValidationError(e.errors())
     except Exception as e:
+        logger.error(f"Error deleting priority: {e}")
         raise AppError(e)

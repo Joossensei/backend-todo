@@ -2,7 +2,10 @@ import uuid
 import asyncpg
 from app.core.security import PasswordHasher
 from app.schemas.user import UserCreate, UserUpdate, UserUpdatePassword
-from app.core.errors import AppError, NotFoundError
+from app.core.errors import AppError, NotFoundError, ValidationError
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class UserService:
@@ -20,8 +23,6 @@ class UserService:
                 limit,
                 skip,
             )
-            if not resp:
-                raise NotFoundError(ValueError("No users found"))
             return resp
         except Exception as e:
             raise AppError(e)
@@ -38,8 +39,10 @@ class UserService:
                 key,
             )
             if not resp:
-                raise NotFoundError(ValueError(f"User with key {key} not found"))
+                raise NotFoundError(f"User with key {key} not found")
             return resp
+        except NotFoundError:
+            raise
         except Exception as e:
             raise AppError(e)
 
@@ -54,8 +57,6 @@ class UserService:
                 """,
                 email,
             )
-            if not resp:
-                raise NotFoundError(ValueError(f"User with email {email} not found"))
             return resp
         except Exception as e:
             raise AppError(e)
@@ -73,10 +74,6 @@ class UserService:
                 """,
                 username,
             )
-            if not resp:
-                raise NotFoundError(
-                    ValueError(f"User with username {username} not found")
-                )
             return resp
         except Exception as e:
             raise AppError(e)
@@ -85,13 +82,15 @@ class UserService:
     async def create_user(conn: asyncpg.Connection, user: UserCreate) -> asyncpg.Record:
         async with conn.transaction():
             if await UserService.get_user_by_username(conn, user.username):
-                raise ValueError(f"User with username {user.username} already exists")
+                raise ValidationError(
+                    f"User with username {user.username} already exists"
+                )
             if await UserService.get_user_by_email(conn, user.email):
-                raise ValueError(f"User with email {user.email} already exists")
+                raise ValidationError(f"User with email {user.email} already exists")
             db_user = await conn.fetchrow(
                 """
-                INSERT INTO users u
-                (u.key, u.name, u.username, u.email, u.hashed_password, u.is_active)
+                INSERT INTO users
+                (key, name, username, email, hashed_password, is_active)
                 VALUES ($1, $2, $3, $4, $5, $6)
                 RETURNING *
                 """,
@@ -111,27 +110,25 @@ class UserService:
         async with conn.transaction():
             db_user = await UserService.get_user_by_key(conn, key)
             if not db_user:
-                raise ValueError(f"User with key {key} not found")
+                raise NotFoundError(f"User with key {key} not found")
+            param_count = 1
             update_fields = []
-            values = []
-            param_count = 3
-            values.append(db_user["id"])
-            values.append(user_key)
+            update_values = []
             for field, value in user.model_dump().items():
-                if value is not None:
-                    update_fields.append(f'"{field}" = ${param_count}')
-                    values.append(value)
-                    param_count += 1
-            if not update_fields:
-                return db_user
+                update_fields.append(f'"{field}" = ${param_count}')
+                update_values.append(value)
+                param_count += 1
+            update_values.append(db_user["id"])
+            update_values.append(user_key)
+            sql = f"""
+            UPDATE users u
+            SET {', '.join(update_fields)}
+            WHERE u.id = ${param_count} AND u.key = ${param_count + 1}
+            RETURNING *
+            """
             updated_user = await conn.fetchrow(
-                f"""
-                UPDATE users u
-                SET {', '.join(update_fields)}
-                WHERE u.id = ${param_count} AND u.key = ${param_count + 1}
-                RETURNING *
-                """,
-                *values,
+                sql,
+                *update_values,
             )
             return updated_user
 
@@ -140,7 +137,7 @@ class UserService:
         async with conn.transaction():
             db_user = await UserService.get_user_by_key(conn, key)
             if not db_user:
-                raise ValueError(f"User with key {key} not found")
+                raise NotFoundError(f"User with key {key} not found")
             await conn.execute(
                 """
                 DELETE FROM users u
@@ -159,8 +156,6 @@ class UserService:
                 FROM users u
                 """,
             )
-            if not resp:
-                raise NotFoundError(ValueError("No users found"))
             return resp
         except Exception as e:
             raise AppError(e)
@@ -172,20 +167,20 @@ class UserService:
         async with conn.transaction():
             db_user = await UserService.get_user_by_key(conn, key)
             if not db_user:
-                raise ValueError(f"User with key {key} not found")
+                raise NotFoundError(f"User with key {key} not found")
             if not PasswordHasher.verify(
                 user.current_password, db_user["hashed_password"]
             ):
-                raise ValueError("Current password is incorrect")
-            db_user["hashed_password"] = PasswordHasher.hash(user.password)
+                raise ValidationError("Current password is incorrect")
+            hashed_password = PasswordHasher.hash(user.password)
             updated_user = await conn.fetchrow(
                 """
-                UPDATE users u
-                SET u.hashed_password = $1
-                WHERE u.key = $2
+                UPDATE users
+                SET hashed_password = $1
+                WHERE key = $2
                 RETURNING *
                 """,
-                db_user["hashed_password"],
+                hashed_password,
                 key,
             )
             return updated_user

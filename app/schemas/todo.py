@@ -5,18 +5,25 @@ from datetime import datetime
 
 
 class TodoCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=100)
+    title: str = Field(...)
     description: Optional[str] = None
-    priority: str = Field(..., min_length=1, max_length=36)
-    completed: bool = False
+    priority: str = Field(...)
+    completed: Optional[bool] = None
     user_key: str
 
 
 class TodoUpdate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=100)
+    title: str = Field(...)
     description: Optional[str] = None
-    completed: bool = False
-    priority: str = Field(..., min_length=1, max_length=36)
+    completed: Optional[bool] = None
+    priority: str = Field(...)
+
+
+class TodoPatch(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    completed: Optional[bool] = None
+    priority: Optional[str] = None
 
 
 class TodoResponse(BaseModel):
