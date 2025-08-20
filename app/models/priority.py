@@ -37,15 +37,15 @@ class Priority(Base):
     def __str__(self):
         return (
             f"Priority(id={self.id}, name='{self.name}',"
-            f" key='{self.key}', color='{self.color}', icon='{
-                self.icon}', order={self.order}, user_key={self.user_key})"
+            f" key='{self.key}', color='{self.color}', icon='{self.icon}',"
+            f" order={self.order}, user_key={self.user_key})"
         )
 
     def __repr__(self):
         return (
             f"<Priority(id={self.id}, name='{self.name}',"
-            f" key='{self.key}', color='{self.color}', icon='{
-                self.icon}', order={self.order}, user_key={self.user_key})>"
+            f" key='{self.key}', color='{self.color}', icon='{self.icon}',"
+            f" order={self.order}, user_key={self.user_key})>"
         )
 
     def to_dict(self):
