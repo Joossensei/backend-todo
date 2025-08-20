@@ -132,6 +132,7 @@ class AuthFactory:
         token = TokenManager.encode(
             {
                 "sub": user["username"],
+                "uid": user["key"],  # Add uid claim for rate limiting
                 "exp": datetime.now(timezone.utc) + timedelta(hours=1),
             }
         )
@@ -152,6 +153,7 @@ class AuthFactory:
         token = TokenManager.encode(
             {
                 "sub": user["username"],
+                "uid": user["key"],  # Add uid claim for rate limiting
                 "exp": datetime.now(timezone.utc) + timedelta(hours=1),
             }
         )

@@ -45,11 +45,23 @@ Throughout the API we have different Rate limits in place.
 
 These rate limits all get served back to the user via the Response Headers:
 
-- `x-ratelimit-limit`
-- `x-ratelimit-remaining`
-- `x-ratelimit-reset`
+- `X-RateLimit-Limit`: The maximum number of requests allowed in the current window
+- `X-RateLimit-Remaining`: The number of requests remaining in the current window
+- `X-RateLimit-Reset`: The timestamp when the current window resets (Unix timestamp)
 
-These headers contain the information necessary for the rate limiting on each endpoint.
+When rate limits are exceeded, the API returns a 429 status code with a `Retry-After` header indicating how many seconds to wait before retrying.
+
+### Rate Limiting Features
+
+- **Sliding Window**: Uses a sliding window algorithm for accurate rate limiting
+- **Multi-Window Policies**: Some endpoints have multiple rate limits (e.g., 10/second AND 200/minute)
+- **Per-User Limiting**: Authenticated endpoints are rate limited per user (using JWT uid claim)
+- **Per-IP Limiting**: Public endpoints and unauthenticated requests are rate limited per IP address
+- **Proxy Support**: When `TRUST_PROXY_IP_HEADERS=true` environment variable is set, the API will use `X-Forwarded-For` and `Forwarded` headers to determine the client IP
+
+### Environment Variables
+
+- `TRUST_PROXY_IP_HEADERS`: Set to `true` to trust proxy headers for IP detection (default: `false`)
 
 If you're curious there is also a table all the way at the bottom of this document of all endpoints with their rate limit.
 

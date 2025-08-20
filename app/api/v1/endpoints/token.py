@@ -21,7 +21,11 @@ async def login_for_access_token(request: web.Request) -> web.Response:
             raise UnauthorizedError(ValueError("Incorrect username or password"))
         access_token_expires = timedelta(days=settings.ACCESS_TOKEN_EXPIRE_DAYS)
         access_token = AuthService.create_access_token(
-            data={"sub": user["username"]}, expires_delta=access_token_expires
+            data={
+                "sub": user["username"],
+                "uid": user["key"],  # Add uid claim for rate limiting
+            },
+            expires_delta=access_token_expires,
         )
         return web.json_response(
             Token(

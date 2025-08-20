@@ -59,6 +59,7 @@ async def auth_parsing_middleware(request: web.Request, handler):
         # Public request; no user
         request["user"] = None
         request["claims"] = None
+        request["user_key"] = None
         return await handler(request)
 
     try:
@@ -71,6 +72,7 @@ async def auth_parsing_middleware(request: web.Request, handler):
     # Store claims for downstream handlers/decorators
     request["claims"] = claims
     request["user"] = claims.get("sub")  # or 'preferred_username' depending on your IdP
+    request["user_key"] = claims.get("uid")  # User key for rate limiting
     return await handler(request)
 
 
