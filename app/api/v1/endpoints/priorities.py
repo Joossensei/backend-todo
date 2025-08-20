@@ -9,6 +9,7 @@ from app.schemas.priority import (
     PriorityCreate,
     PriorityPatch,
     PriorityUpdate,
+    PriorityReorder,
 )
 from app.utils.pagination import build_pagination_link, parse_pagination
 from app.core.errors import AppError, NotFoundError, UnauthorizedError, ValidationError
@@ -270,4 +271,53 @@ async def delete_priority(request: web.Request):
         raise ValidationError(e.errors())
     except Exception as e:
         logger.error(f"Error deleting priority: {e}")
+        raise AppError(e)
+
+
+@require_auth()
+async def reorder_priorities(request: web.Request):
+    """Reorder priorities by moving from one order position to another."""
+    db = request["conn"]
+    username = request["user"]
+    current_user = await AuthService.get_user(db, username)
+    reorder_data = await request.json()
+
+    try:
+        # Validate the request body
+        reorder_model = PriorityReorder(**reorder_data)
+
+        # Perform the reordering
+        updated_priorities = await PriorityService.reorder_priorities(
+            db, reorder_model, current_user["key"]
+        )
+
+        # Convert to response format
+        items = [PriorityResponse(**record_to_dict(p)) for p in updated_priorities]
+
+        return web.json_response(
+            PriorityListResponse(
+                priorities=items,
+                total=len(items),
+                page=1,
+                size=len(items),
+                success=True,
+                next_link=None,
+                prev_link=None,
+            ).model_dump(),
+            status=200,
+        )
+    except UnauthorizedError as e:
+        logger.error(f"Unauthorized error: {e}")
+        raise UnauthorizedError(e)
+    except NotFoundError as e:
+        logger.error(f"Not found error: {e}")
+        raise
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise
+    except pydantic.ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise ValidationError(e.errors())
+    except Exception as e:
+        logger.error(f"Error reordering priorities: {e}")
         raise AppError(e)

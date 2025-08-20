@@ -36,6 +36,11 @@ def apply_priority_routes(routes: web.RouteTableDef) -> None:
         """Partially update a priority."""
         return await priorities.patch_priority(request)
 
+    @routes.patch("/api/v1/priority/{key}/reorder")
+    async def reorder_priorities(request: web.Request):
+        """Reorder priorities by moving from one order position to another."""
+        return await priorities.reorder_priorities(request)
+
     @routes.delete("/api/v1/priority/{key}")
     async def delete_priority(request: web.Request):
         """Delete a priority."""

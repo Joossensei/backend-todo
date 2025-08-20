@@ -29,6 +29,11 @@ class PriorityPatch(BaseModel):
     order: Optional[int] = Field(None)
 
 
+class PriorityReorder(BaseModel):
+    fromOrder: int = Field(..., description="The current order position")
+    toOrder: int = Field(..., description="The target order position")
+
+
 class PriorityResponse(BaseModel):
     key: str
     name: str
