@@ -75,6 +75,10 @@ jobs:
           # Check the database
           echo "Checking the database..."
           export PGPASSWORD="TESTDatabasePassword"
+          # First, let's see what tables exist
+          echo "Available tables:"
+          psql -h localhost -p 61010 -U postgres -d todo_TEST_db -c "\dt"
+          echo "Checking users table:"
           psql -h localhost -p 61010 -U postgres -d todo_TEST_db -c "SELECT 1 FROM users;"
           echo "Database check complete!"
 
