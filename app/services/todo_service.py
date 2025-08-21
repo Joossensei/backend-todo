@@ -14,6 +14,10 @@ ALLOWED_SORTS = {
     "text-asc": "t.title ASC, t.id DESC",
     "text-desc": "t.title DESC, t.id DESC",
     "created-desc": "t.id DESC",
+    "status-desc": "s.order ASC, t.id DESC",
+    "status-asc": "s.order DESC, t.id DESC",
+    "incomplete-status-desc": "t.completed ASC, s.order ASC, t.id DESC",
+    "priority-status-desc": "p.order ASC, s.order ASC, t.id DESC",
 }
 
 
@@ -42,12 +46,13 @@ class TodoService:
                 "completed": todo.completed,
                 "priority": priority["key"],
                 "user_key": user_key,
+                "status": todo.status,
             }
             db_todo = await conn.fetchrow(
                 """
                 INSERT INTO todos
-                (key, title, description, completed, priority, user_key)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                (key, title, description, completed, priority, user_key, status)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING *
                 """,
                 db_todo["key"],
@@ -56,6 +61,7 @@ class TodoService:
                 db_todo["completed"],
                 db_todo["priority"],
                 db_todo["user_key"],
+                db_todo["status"],
             )
             return db_todo
 
@@ -117,6 +123,7 @@ class TodoService:
                     SELECT t.*
                     FROM todos t
                     LEFT JOIN priorities p ON p.key = t.priority
+                    LEFT JOIN statuses s ON s.key = t.status
                     WHERE {' AND '.join(where)}
                     ORDER BY {order_by}
                     OFFSET ${next_idx} LIMIT ${next_idx + 1}
@@ -185,6 +192,19 @@ class TodoService:
                     f"Priority with id {todo_update.priority} not found"
                 )
             todo_update.priority = priority["key"]
+            status = await conn.fetchrow(
+                """
+                SELECT s.*
+                FROM statuses s
+                WHERE s.key = $1
+                AND s.user_key = $2
+                """,
+                todo_update.status,
+                user_key,
+            )
+            if not status:
+                raise NotFoundError(f"Status with id {todo_update.status} not found")
+            todo_update.status = status["key"]
             db_todo = await conn.fetchrow(
                 """
                 SELECT t.*
@@ -202,7 +222,13 @@ class TodoService:
                 param_count = 1
 
                 for field, value in todo_update.model_dump().items():
-                    if field in ["title", "description", "completed", "priority"]:
+                    if field in [
+                        "title",
+                        "description",
+                        "completed",
+                        "priority",
+                        "status",
+                    ]:
                         update_fields.append(f'"{field}" = ${param_count}')
                         values.append(value)
                         param_count += 1
@@ -274,6 +300,20 @@ class TodoService:
                     raise NotFoundError(
                         f"Priority with id {todo_patch.priority} not found"
                     )
+            if todo_patch.status is not None:
+                status = await conn.fetchrow(
+                    """
+                    SELECT s.*
+                    FROM statuses s
+                    WHERE s.key = $1
+                    AND s.user_key = $2
+                    """,
+                    todo_patch.status,
+                    user_key,
+                )
+                if not status:
+                    raise NotFoundError(f"Status with id {todo_patch.status} not found")
+                todo_patch.status = status["key"]
             db_todo = await conn.fetchrow(
                 """
                 SELECT t.*

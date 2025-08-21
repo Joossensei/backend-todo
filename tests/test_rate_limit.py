@@ -12,7 +12,7 @@ Tests cover:
 import pytest
 import time
 from app.middleware.rate_limit import reset_rate_limiters
-from tests.factories import AuthFactory, PriorityFactory
+from tests.factories import AuthFactory, PriorityFactory, StatusFactory
 
 
 @pytest.fixture(autouse=True)
@@ -178,6 +178,9 @@ class TestPerUserRateLimiting:
             db_conn, user_key, name="High", order=1
         )
 
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         # Create a todo first
         todo_response = await client.post(
             "/api/v1/todos",
@@ -187,6 +190,7 @@ class TestPerUserRateLimiting:
                 "priority": priority["key"],  # Use the priority key
                 "completed": False,
                 "user_key": user_key,
+                "status": status["key"],
             },
             headers=auth_data["headers"],
         )

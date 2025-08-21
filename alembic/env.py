@@ -9,6 +9,9 @@ from alembic import context
 from app.core.config import settings
 from db.database import Base
 
+# Import all models so Alembic can see them
+from app.models import Todo, Priority, User, Status  # noqa: F401
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

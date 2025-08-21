@@ -310,6 +310,61 @@ RATE_LIMIT_POLICIES = [
             RateLimitWindow(50, 3600),  # 50 per hour
         ],
     ),
+    # Status endpoints - User key based
+    RateLimitPolicy(
+        "GET",
+        "/api/v1/statuses",
+        "user",
+        [
+            RateLimitWindow(10, 1),  # 10 per second
+            RateLimitWindow(200, 60),  # 200 per minute
+        ],
+    ),
+    RateLimitPolicy(
+        "GET",
+        "/api/v1/status/{key}",
+        "user",
+        [
+            RateLimitWindow(20, 1),  # 20 per second
+            RateLimitWindow(400, 60),  # 400 per minute
+        ],
+    ),
+    RateLimitPolicy(
+        "POST",
+        "/api/v1/statuses",
+        "user",
+        [
+            RateLimitWindow(10, 60),  # 10 per minute
+            RateLimitWindow(100, 3600),  # 100 per hour
+        ],
+    ),
+    RateLimitPolicy(
+        "PUT",
+        "/api/v1/status/{key}",
+        "user",
+        [
+            RateLimitWindow(20, 60),  # 20 per minute
+            RateLimitWindow(200, 3600),  # 200 per hour
+        ],
+    ),
+    RateLimitPolicy(
+        "PATCH",
+        "/api/v1/status/{key}",
+        "user",
+        [
+            RateLimitWindow(20, 60),  # 20 per minute
+            RateLimitWindow(200, 3600),  # 200 per hour
+        ],
+    ),
+    RateLimitPolicy(
+        "DELETE",
+        "/api/v1/status/{key}",
+        "user",
+        [
+            RateLimitWindow(10, 60),  # 10 per minute
+            RateLimitWindow(50, 3600),  # 50 per hour
+        ],
+    ),
 ]
 
 

@@ -10,6 +10,7 @@ class TodoCreate(BaseModel):
     priority: str = Field(...)
     completed: Optional[bool] = None
     user_key: str
+    status: str = Field(...)
 
 
 class TodoUpdate(BaseModel):
@@ -17,6 +18,7 @@ class TodoUpdate(BaseModel):
     description: Optional[str] = None
     completed: Optional[bool] = None
     priority: str = Field(...)
+    status: str = Field(...)
 
 
 class TodoPatch(BaseModel):
@@ -24,6 +26,7 @@ class TodoPatch(BaseModel):
     description: Optional[str] = None
     completed: Optional[bool] = None
     priority: Optional[str] = None
+    status: Optional[str] = None
 
 
 class TodoResponse(BaseModel):
@@ -33,6 +36,7 @@ class TodoResponse(BaseModel):
     completed: bool
     priority: str
     user_key: str
+    status: str
     created_at: datetime
     updated_at: Optional[datetime]
 
@@ -44,6 +48,7 @@ class TodoResponse(BaseModel):
             "description": self.description,
             "completed": self.completed,
             "priority": self.priority,
+            "status": self.status,
             "user_key": self.user_key,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
