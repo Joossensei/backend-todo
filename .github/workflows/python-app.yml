@@ -20,7 +20,7 @@ jobs:
       postgres:
         image: postgres:latest
         env:
-          POSTGRES_PASSWORD: TEST#T0d0s_Guidance
+          POSTGRES_PASSWORD: TESTDatabasePassword
           POSTGRES_DB: todo_TEST_db
         options: >-
           --health-cmd pg_isready
@@ -54,7 +54,7 @@ jobs:
           echo "PostgreSQL is ready!"
 
           # Set environment variables for the test database
-          export TEST_DATABASE_URL="postgresql://postgres:TEST#T0d0s_Guidance@localhost:61010/todo_TEST_db"
+          export TEST_DATABASE_URL="postgresql://postgres:TESTDatabasePassword@localhost:61010/todo_TEST_db"
           export DATABASE_URL="$TEST_DATABASE_URL"
           export SECRET_KEY="test-secret-key-for-github-actions-workflow"
           export DEBUG="True"
@@ -74,6 +74,7 @@ jobs:
 
           # Check the database
           echo "Checking the database..."
+          export PGPASSWORD="TESTDatabasePassword"
           psql -h localhost -p 61010 -U postgres -d todo_TEST_db -c "SELECT 1 FROM users;"
           echo "Database check complete!"
 
@@ -88,8 +89,8 @@ jobs:
 
       - name: Test with pytest
         env:
-          TEST_DATABASE_URL: postgresql://postgres:TEST#T0d0s_Guidance@localhost:61010/todo_TEST_db
-          DATABASE_URL: postgresql://postgres:TEST#T0d0s_Guidance@localhost:61010/todo_TEST_db
+          TEST_DATABASE_URL: postgresql://postgres:TESTDatabasePassword@localhost:61010/todo_TEST_db
+          DATABASE_URL: postgresql://postgres:TESTDatabasePassword@localhost:61010/todo_TEST_db
           SECRET_KEY: test-secret-key-for-github-actions-workflow
           DEBUG: True
           IS_TESTING: True
