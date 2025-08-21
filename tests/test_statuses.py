@@ -36,7 +36,7 @@ class TestGetStatuses:
         assert response.status == 200
         data = await response.json()
         assert data["page"] == 2
-        assert data["size"] == 5  # No statuses in database
+        assert data["size"] == 5  # Page size should be 5 when 20 statuses exist
 
     @pytest.mark.asyncio
     async def test_get_statuses_with_pagination_no_data(self, auth_client):
