@@ -109,7 +109,7 @@ class TestCreateValidateStatus:
     async def test_create_status_long_name(self, auth_client):
         """Test creating a status with invalid data"""
         invalid_data = {
-            "name": "This is a long name that is greater than 100 characters for this it must be more than 100 characters so we type a very long string so it will fail",
+            "name": "A" * 101,
             "color": "#FF0000",
             "icon": "fa-chevron-up",
             "order": 1,
