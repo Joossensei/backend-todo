@@ -248,7 +248,6 @@ class TestUpdateStatus:
             order=88,
             is_default=True,
         )
-        """Test updating a status successfully"""
         # First create a status
         create_response = await auth_client.post(
             "/api/v1/statuses", json=sample_status_data.model_dump()
