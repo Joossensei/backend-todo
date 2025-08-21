@@ -72,6 +72,11 @@ jobs:
           echo "Running Alembic migrations..."
           alembic -c alembic_test.ini upgrade head
 
+          # Check the database
+          echo "Checking the database..."
+          psql -h localhost -p 61010 -U postgres -d todo_TEST_db -c "SELECT 1 FROM users;"
+          echo "Database check complete!"
+
           echo "Test database setup complete!"
 
       - name: Lint with flake8
