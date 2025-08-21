@@ -567,9 +567,80 @@ _Note: All these fields are optional but you must provide at least **one**!_
 }
 ```
 
+### PATCH `/api/v1/priority/{key}/reorder`
+
+Reorder priorities by moving a priority from one order position to another
+
+**Path Parameters**
+
+- `key`: The key of the Priority record you would like to reorder
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+
+```json
+{
+  "fromOrder": 1,
+  "toOrder": 3
+}
+```
+
+**Response Body:**
+
+```json
+{
+  "priorities": [
+    {
+      "key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+      "name": "Priority 2",
+      "description": "Medium priority",
+      "color": "#FFA500",
+      "icon": "fa-minus",
+      "order": 1,
+      "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+      "created_at": "2025-08-12T08:26:11.866058Z",
+      "updated_at": "2025-08-12T08:26:11.866058Z"
+    },
+    {
+      "key": "bbbbbbbb-0000-bbbb-0000-bbbbbbbbbbbb",
+      "name": "Priority 3",
+      "description": "High priority",
+      "color": "#FF0000",
+      "icon": "fa-plus",
+      "order": 2,
+      "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+      "created_at": "2025-08-12T08:26:11.866058Z",
+      "updated_at": "2025-08-12T08:26:11.866058Z"
+    },
+    {
+      "key": "cccccccc-0000-cccc-0000-cccccccccccc",
+      "name": "Priority 1",
+      "description": "Low priority",
+      "color": "#00FF00",
+      "icon": "fa-minus",
+      "order": 3,
+      "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+      "created_at": "2025-08-12T08:26:11.866058Z",
+      "updated_at": "2025-08-12T08:26:11.866058Z"
+    }
+  ],
+  "total": 3,
+  "page": 1,
+  "size": 3,
+  "success": true,
+  "next_link": null,
+  "prev_link": null
+}
+```
+
 ### DELETE `/api/v1/priority/{key}`
 
-Deletes a todo of the authenticated user
+Deletes a priority of the authenticated user
 
 **Path Parameters**
 
@@ -802,26 +873,27 @@ Authorization: Bearer <access_token>
 
 # Rate limit table
 
-| Method     | Path                          | Rate limit                       | Keying basis |
-| ---------- | ----------------------------- | -------------------------------- | ------------ |
-| **GET**    | `/`                           | 60 per minute                    | IP address   |
-| **GET**    | `/health`                     | 60 per minute                    | IP address   |
-| **POST**   | `/api/v1/token`               | 5 per minute and 100 per hour    | IP address   |
-| **GET**    | `/api/v1/users`               | 10 per second and 200 per minute | User key     |
-| **GET**    | `/api/v1/user/{key}`          | 20 per second and 400 per minute | User key     |
-| **POST**   | `/api/v1/users`               | 5 per minute and 50 per hour     | IP address   |
-| **PUT**    | `/api/v1/user/{key}`          | 10 per minute and 100 per hour   | User key     |
-| **PUT**    | `/api/v1/user/{key}/password` | 10 per minute and 100 per hour   | User key     |
-| **DELETE** | `/api/v1/user/{key}`          | 10 per minute and 50 per hour    | User key     |
-| **GET**    | `/api/v1/todos`               | 10 per second and 200 per minute | User key     |
-| **GET**    | `/api/v1/todo/{key}`          | 20 per second and 400 per minute | User key     |
-| **POST**   | `/api/v1/todos`               | 10 per minute and 100 per hour   | User key     |
-| **PUT**    | `/api/v1/todo/{key}`          | 20 per minute and 200 per hour   | User key     |
-| **PATCH**  | `/api/v1/todo/{key}`          | 20 per minute and 200 per hour   | User key     |
-| **DELETE** | `/api/v1/todo/{key}`          | 10 per minute and 50 per hour    | User key     |
-| **GET**    | `/api/v1/priorities`          | 10 per second and 200 per minute | User key     |
-| **GET**    | `/api/v1/priority/{key}`      | 20 per second and 400 per minute | User key     |
-| **POST**   | `/api/v1/priorities`          | 10 per minute and 100 per hour   | User key     |
-| **PUT**    | `/api/v1/priority/{key}`      | 20 per minute and 200 per hour   | User key     |
-| **PATCH**  | `/api/v1/priority/{key}`      | 20 per minute and 200 per hour   | User key     |
-| **DELETE** | `/api/v1/priority/{key}`      | 10 per minute and 50 per hour    | User key     |
+| Method     | Path                             | Rate limit                       | Keying basis |
+| ---------- | -------------------------------- | -------------------------------- | ------------ |
+| **GET**    | `/`                              | 60 per minute                    | IP address   |
+| **GET**    | `/health`                        | 60 per minute                    | IP address   |
+| **POST**   | `/api/v1/token`                  | 5 per minute and 100 per hour    | IP address   |
+| **GET**    | `/api/v1/users`                  | 10 per second and 200 per minute | User key     |
+| **GET**    | `/api/v1/user/{key}`             | 20 per second and 400 per minute | User key     |
+| **POST**   | `/api/v1/users`                  | 5 per minute and 50 per hour     | IP address   |
+| **PUT**    | `/api/v1/user/{key}`             | 10 per minute and 100 per hour   | User key     |
+| **PUT**    | `/api/v1/user/{key}/password`    | 10 per minute and 100 per hour   | User key     |
+| **DELETE** | `/api/v1/user/{key}`             | 10 per minute and 50 per hour    | User key     |
+| **GET**    | `/api/v1/todos`                  | 10 per second and 200 per minute | User key     |
+| **GET**    | `/api/v1/todo/{key}`             | 20 per second and 400 per minute | User key     |
+| **POST**   | `/api/v1/todos`                  | 10 per minute and 100 per hour   | User key     |
+| **PUT**    | `/api/v1/todo/{key}`             | 20 per minute and 200 per hour   | User key     |
+| **PATCH**  | `/api/v1/todo/{key}`             | 20 per minute and 200 per hour   | User key     |
+| **DELETE** | `/api/v1/todo/{key}`             | 10 per minute and 50 per hour    | User key     |
+| **GET**    | `/api/v1/priorities`             | 10 per second and 200 per minute | User key     |
+| **GET**    | `/api/v1/priority/{key}`         | 20 per second and 400 per minute | User key     |
+| **POST**   | `/api/v1/priorities`             | 10 per minute and 100 per hour   | User key     |
+| **PUT**    | `/api/v1/priority/{key}`         | 20 per minute and 200 per hour   | User key     |
+| **PATCH**  | `/api/v1/priority/{key}`         | 20 per minute and 200 per hour   | User key     |
+| **PATCH**  | `/api/v1/priority/{key}/reorder` | 20 per minute and 200 per hour   | User key     |
+| **DELETE** | `/api/v1/priority/{key}`         | 10 per minute and 50 per hour    | User key     |

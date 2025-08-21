@@ -843,3 +843,198 @@ class TestGetPrioritiesWithData:
         assert len(data["priorities"]) == 3
         assert data["total"] == 3
         assert data["success"] is True
+
+
+class TestReorderPriorities:
+    @pytest.mark.asyncio
+    async def test_reorder_priorities_success(self, auth_client):
+        """Test reordering priorities successfully"""
+        # Create multiple priorities
+        priorities = []
+        for i in range(3):
+            priority_data = PriorityCreate(
+                name=f"Priority {i+1}",
+                color="#FF0000",
+                icon="fa-chevron-up",
+                order=i + 1,
+                user_key=auth_client.session.headers["User-Key"],
+            )
+            response = await auth_client.post(
+                "/api/v1/priorities", json=priority_data.model_dump()
+            )
+            assert response.status == 201
+            priorities.append(await response.json())
+
+        # Verify initial order
+        response = await auth_client.get("/api/v1/priorities")
+        assert response.status == 200
+        data = await response.json()
+        assert data["priorities"][0]["order"] == 1
+        assert data["priorities"][1]["order"] == 2
+        assert data["priorities"][2]["order"] == 3
+
+        # Reorder: move priority from order 1 to order 3
+        reorder_data = {"fromOrder": 1, "toOrder": 3}
+        response = await auth_client.patch(
+            f"/api/v1/priority/{priorities[0]['key']}/reorder", json=reorder_data
+        )
+        assert response.status == 200
+        data = await response.json()
+        assert data["success"] is True
+        assert len(data["priorities"]) == 3
+
+        # Verify the new order
+        # The priority that was at order 1 should now be at order 3
+        # The priorities that were at orders 2 and 3 should now be at orders 1 and 2
+        priorities_by_order = {p["order"]: p for p in data["priorities"]}
+        assert priorities_by_order[1]["name"] == "Priority 2"
+        assert priorities_by_order[2]["name"] == "Priority 3"
+        assert priorities_by_order[3]["name"] == "Priority 1"
+
+    @pytest.mark.asyncio
+    async def test_reorder_priorities_move_up(self, auth_client):
+        """Test reordering priorities by moving up"""
+        # Create multiple priorities
+        priorities = []
+        for i in range(3):
+            priority_data = PriorityCreate(
+                name=f"Priority {i+1}",
+                color="#FF0000",
+                icon="fa-chevron-up",
+                order=i + 1,
+                user_key=auth_client.session.headers["User-Key"],
+            )
+            response = await auth_client.post(
+                "/api/v1/priorities", json=priority_data.model_dump()
+            )
+            assert response.status == 201
+            priorities.append(await response.json())
+
+        # Reorder: move priority from order 3 to order 1
+        reorder_data = {"fromOrder": 3, "toOrder": 1}
+        response = await auth_client.patch(
+            f"/api/v1/priority/{priorities[2]['key']}/reorder", json=reorder_data
+        )
+        assert response.status == 200
+        data = await response.json()
+        assert data["success"] is True
+
+        # Verify the new order
+        priorities_by_order = {p["order"]: p for p in data["priorities"]}
+        assert priorities_by_order[1]["name"] == "Priority 3"
+        assert priorities_by_order[2]["name"] == "Priority 1"
+        assert priorities_by_order[3]["name"] == "Priority 2"
+
+    @pytest.mark.asyncio
+    async def test_reorder_priorities_same_order(self, auth_client):
+        """Test reordering priorities with same from and to order"""
+        # Create a priority
+        priority_data = PriorityCreate(
+            name="Test Priority",
+            color="#FF0000",
+            icon="fa-chevron-up",
+            order=1,
+            user_key=auth_client.session.headers["User-Key"],
+        )
+        response = await auth_client.post(
+            "/api/v1/priorities", json=priority_data.model_dump()
+        )
+        assert response.status == 201
+
+        created_priority = await response.json()
+        # Reorder: same order (should be a no-op)
+        reorder_data = {"fromOrder": 1, "toOrder": 1}
+        response = await auth_client.patch(
+            f"/api/v1/priority/{created_priority['key']}/reorder", json=reorder_data
+        )
+        assert response.status == 200
+        data = await response.json()
+        assert data["success"] is True
+        assert len(data["priorities"]) == 1
+        assert data["priorities"][0]["order"] == 1
+
+    @pytest.mark.asyncio
+    async def test_reorder_priorities_invalid_from_order(self, auth_client):
+        """Test reordering with invalid from order"""
+        # Create a priority
+        priority_data = PriorityCreate(
+            name="Test Priority",
+            color="#FF0000",
+            icon="fa-chevron-up",
+            order=1,
+            user_key=auth_client.session.headers["User-Key"],
+        )
+        response = await auth_client.post(
+            "/api/v1/priorities", json=priority_data.model_dump()
+        )
+        assert response.status == 201
+
+        created_priority = await response.json()
+        # Try to reorder with non-existent from order
+        reorder_data = {"fromOrder": 999, "toOrder": 1}
+        response = await auth_client.patch(
+            f"/api/v1/priority/{created_priority['key']}/reorder", json=reorder_data
+        )
+        assert response.status == 404
+        data = await response.json()
+        assert data["error"]["code"] == "not_found"
+        assert "Priority with order 999 not found" in data["error"]["message"]
+
+    @pytest.mark.asyncio
+    async def test_reorder_priorities_invalid_to_order(self, auth_client):
+        """Test reordering with invalid to order"""
+        # Create a priority
+        priority_data = PriorityCreate(
+            name="Test Priority",
+            color="#FF0000",
+            icon="fa-chevron-up",
+            order=1,
+            user_key=auth_client.session.headers["User-Key"],
+        )
+        response = await auth_client.post(
+            "/api/v1/priorities", json=priority_data.model_dump()
+        )
+        assert response.status == 201
+
+        created_priority = await response.json()
+        # Try to reorder with invalid to order
+        reorder_data = {"fromOrder": 1, "toOrder": 999}
+        response = await auth_client.patch(
+            f"/api/v1/priority/{created_priority['key']}/reorder", json=reorder_data
+        )
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+        assert "Target order must be between 1 and 1" in data["error"]["message"]
+
+    @pytest.mark.asyncio
+    async def test_reorder_priorities_no_auth(self, client):
+        """Test reordering priorities without authentication"""
+        reorder_data = {"fromOrder": 1, "toOrder": 2}
+        response = await client.patch(
+            "/api/v1/priority/some-key/reorder", json=reorder_data
+        )
+        assert response.status == 401
+        data = await response.json()
+        assert data["detail"] == "Missing or invalid token"
+
+    @pytest.mark.asyncio
+    async def test_reorder_priorities_invalid_request_body(self, auth_client):
+        """Test reordering with invalid request body"""
+        # Missing required fields
+        reorder_data = {"fromOrder": 1}  # Missing toOrder
+        response = await auth_client.patch(
+            "/api/v1/priority/key/reorder", json=reorder_data
+        )
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
+
+        # Invalid field types
+        reorder_data = {"fromOrder": "invalid", "toOrder": 2}
+        response = await auth_client.patch(
+            "/api/v1/priority/key/reorder", json=reorder_data
+        )
+        assert response.status == 422
+        data = await response.json()
+        assert data["error"]["code"] == "validation_error"
