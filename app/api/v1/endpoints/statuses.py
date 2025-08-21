@@ -128,7 +128,6 @@ async def create_status(request: web.Request):
         ):
             raise ValidationError(custom_message="All fields are required")
         status_model = StatusCreate(**status_data)
-        logger.info("Check 131")
         status_model = StatusCreateValidator.validate_status(status_model)
         logger.info("Check 133")
         status = await StatusService.create_status(
