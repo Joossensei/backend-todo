@@ -132,7 +132,6 @@ async def create_status(request: web.Request):
         status = await StatusService.create_status(
             db, status_model, current_user["key"]
         )
-        logger.info("Check 135")
         return web.json_response(
             StatusResponse(**record_to_dict(status)).model_dump(),
             status=201,
