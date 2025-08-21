@@ -45,10 +45,7 @@ class StatusCreateValidator:
         StatusCreateValidator.validate_status_name(status)
         StatusCreateValidator.validate_status_color(status)
         StatusCreateValidator.validate_status_icon(status)
-        status = StatusCreateValidator.validate_status_name(status)
-        status = StatusCreateValidator.validate_status_color(status)
-        status = StatusCreateValidator.validate_status_icon(status)
-        status = StatusCreateValidator.validate_status_order(status)
+        StatusCreateValidator.validate_status_order(status)
         return status
 
 
