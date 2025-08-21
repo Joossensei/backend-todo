@@ -77,7 +77,7 @@ jobs:
           echo "Checking what database Alembic connects to:"
           alembic current
           # Run migrations with verbose output
-          alembic upgrade head --verbose
+          alembic upgrade head
 
           # Check the database
           echo "Checking the database..."
