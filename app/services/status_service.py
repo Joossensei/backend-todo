@@ -216,7 +216,7 @@ class StatusService:
                 user_key,
             )
             # COUNT(*) returns 0 for empty sets; return that instead of raising
-            return int(resp or 0)
+            return int(resp)
         except Exception as e:
             raise AppError(e)
 
