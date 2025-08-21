@@ -43,6 +43,8 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_statuses")),
         sa.UniqueConstraint("key", name=op.f("uq_statuses_key")),
     )
+    # Update todos add status
+    op.add_column("todos", sa.Column("status", sa.String(length=36), nullable=False))
     op.create_index(
         "ix_todo_user_key_status", "todos", ["user_key", "status"], unique=False
     )
