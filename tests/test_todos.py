@@ -1,5 +1,5 @@
 import pytest
-from tests.factories import TodoFactory, PriorityFactory
+from tests.factories import TodoFactory, PriorityFactory, StatusFactory
 from app.schemas.todo import TodoCreate, TodoPatch, TodoUpdate
 
 
@@ -17,12 +17,28 @@ class TestGetTodos:
             db_conn, user_key, name="Low", order=3
         )
 
+        # Create statuses for the user
+        status_1 = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
+        status_2 = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 2", order=2
+        )
+
         # Create todos
         await TodoFactory.create_todo(
-            db_conn, user_key, high_priority["key"], title="Important task"
+            db_conn,
+            user_key,
+            high_priority["key"],
+            status_1["key"],
+            title="Important task",
         )
         await TodoFactory.create_todo(
-            db_conn, user_key, low_priority["key"], title="Less important"
+            db_conn,
+            user_key,
+            low_priority["key"],
+            status_2["key"],
+            title="Less important",
         )
 
         # Test the endpoint
@@ -65,6 +81,9 @@ class TestCreateTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         """Test creating a todo successfully"""
         todo_data = TodoCreate(
             title="Test Todo",
@@ -72,6 +91,7 @@ class TestCreateTodo:
             priority=priority["key"],
             completed=False,
             user_key=user_key,
+            status=status["key"],
         )
         response = await auth_client.post("/api/v1/todos", json=todo_data.model_dump())
         assert response.status == 201
@@ -86,6 +106,7 @@ class TestCreateTodo:
         assert data["description"] == todo_data.description
         assert data["priority"] == todo_data.priority
         assert data["completed"] == todo_data.completed
+        assert data["status"] == todo_data.status
 
 
 class TestCreateValidateTodo:
@@ -96,12 +117,16 @@ class TestCreateValidateTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         invalid_data = {
             "title": "",  # Empty title
             "description": "Test Description",
             "priority": priority["key"],
             "completed": False,
             "user_key": user_key,
+            "status": status["key"],
         }
         response = await auth_client.post("/api/v1/todos", json=invalid_data)
         assert response.status == 422
@@ -116,12 +141,16 @@ class TestCreateValidateTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         invalid_data = {
             "title": "A" * 101,  # Invalid title length
             "description": "Test Description",
             "priority": priority["key"],
             "completed": False,
             "user_key": user_key,
+            "status": status["key"],
         }
         response = await auth_client.post("/api/v1/todos", json=invalid_data)
         assert response.status == 422
@@ -130,9 +159,15 @@ class TestCreateValidateTodo:
         assert data["error"]["message"] == "Title must be less than 100 characters"
 
     @pytest.mark.asyncio
-    async def test_create_todo_missing_required_fields(self, auth_client):
+    async def test_create_todo_missing_required_fields(self, auth_client, db_conn):
         """Test creating a todo with missing required fields"""
-        invalid_data = {"description": "Test Description", "completed": False}
+        user_key = auth_client.session.headers["User-Key"]
+        status = await StatusFactory.create_status(db_conn, user_key, name="Status 1")
+        invalid_data = {
+            "description": "Test Description",
+            "completed": False,
+            "status": status["key"],
+        }
         response = await auth_client.post("/api/v1/todos", json=invalid_data)
         assert response.status == 422  # Validation error
         data = await response.json()
@@ -140,17 +175,18 @@ class TestCreateValidateTodo:
         assert data["error"]["message"] == "All fields are required"
 
     @pytest.mark.asyncio
-    async def test_create_todo_invalid_priority(self, auth_client):
+    async def test_create_todo_invalid_priority(self, auth_client, db_conn):
         """Test creating a todo with invalid priority"""
-        invalid_data = TodoCreate(
-            title="Test Todo",
-            priority="invalid",
-            completed=False,
-            user_key="test",
-        )
-        response = await auth_client.post(
-            "/api/v1/todos", json=invalid_data.model_dump()
-        )
+        user_key = auth_client.session.headers["User-Key"]
+        status = await StatusFactory.create_status(db_conn, user_key, name="Status 1")
+        invalid_data = {
+            "title": "Test Todo",
+            "priority": "invalid",
+            "completed": False,
+            "user_key": user_key,
+            "status": status["key"],
+        }
+        response = await auth_client.post("/api/v1/todos", json=invalid_data)
         assert response.status == 422
         data = await response.json()
         assert data["error"]["code"] == "validation_error"
@@ -163,11 +199,13 @@ class TestCreateValidateTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(db_conn, user_key, name="Status 1")
         invalid_data = {
             "title": "Test Todo",
             "priority": priority["key"],
             "completed": None,
             "user_key": user_key,
+            "status": status["key"],
         }
         response = await auth_client.post("/api/v1/todos", json=invalid_data)
         assert response.status == 422
@@ -184,12 +222,16 @@ class TestGetTodoByKey:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         todo_data = TodoCreate(
             title="Test Todo",
             description="Test Description",
             priority=priority["key"],
             completed=False,
             user_key=user_key,
+            status=status["key"],
         )
         create_response = await auth_client.post(
             "/api/v1/todos", json=todo_data.model_dump()
@@ -228,18 +270,23 @@ class TestUpdateTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         todo_data = TodoCreate(
             title="Test Todo",
             description="Test Description",
             priority=priority["key"],
             completed=False,
             user_key=user_key,
+            status=status["key"],
         )
         todo_update_data = TodoUpdate(
             title="Updated Todo",
             description="Updated Description",
             priority=priority["key"],
             completed=True,
+            status=status["key"],
         )
         create_response = await auth_client.post(
             "/api/v1/todos", json=todo_data.model_dump()
@@ -258,6 +305,7 @@ class TestUpdateTodo:
         assert data["description"] == todo_update_data.description
         assert data["priority"] == todo_update_data.priority
         assert data["completed"] == todo_update_data.completed
+        assert data["status"] == todo_update_data.status
 
     @pytest.mark.asyncio
     async def test_update_todo_not_found(self, auth_client, db_conn):
@@ -266,11 +314,15 @@ class TestUpdateTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         todo_update_data = TodoUpdate(
             title="Updated Todo",
             description="Updated Description",
             priority=priority["key"],
             completed=True,
+            status=status["key"],
         )
         response = await auth_client.put(
             "/api/v1/todo/non-existent-key", json=todo_update_data.model_dump()
@@ -290,6 +342,9 @@ class TestUpdateValidateTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         # Create a todo
         todo_data = TodoCreate(
             title="Test Todo",
@@ -297,6 +352,7 @@ class TestUpdateValidateTodo:
             priority=priority["key"],
             completed=False,
             user_key=user_key,
+            status=status["key"],
         )
         create_response = await auth_client.post(
             "/api/v1/todos", json=todo_data.model_dump()
@@ -311,6 +367,7 @@ class TestUpdateValidateTodo:
             "description": "Test Description",
             "priority": "invalid",
             "completed": False,
+            "status": status["key"],
         }
         response = await auth_client.put(f"/api/v1/todo/{todo_key}", json=invalid_data)
         assert response.status == 422
@@ -325,12 +382,16 @@ class TestUpdateValidateTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         todo_data = TodoCreate(
             title="Test Todo",
             description="Test Description",
             priority=priority["key"],
             completed=False,
             user_key=user_key,
+            status=status["key"],
         )
         create_response = await auth_client.post(
             "/api/v1/todos", json=todo_data.model_dump()
@@ -346,6 +407,7 @@ class TestUpdateValidateTodo:
             "priority": priority["key"],
             "completed": False,
             "user_key": user_key,
+            "status": status["key"],
         }
         response = await auth_client.put(f"/api/v1/todo/{todo_key}", json=invalid_data)
         assert response.status == 422
@@ -360,12 +422,16 @@ class TestUpdateValidateTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         todo_data = TodoCreate(
             title="Test Todo",
             description="Test Description",
             priority=priority["key"],
             completed=False,
             user_key=user_key,
+            status=status["key"],
         )
         create_response = await auth_client.post(
             "/api/v1/todos", json=todo_data.model_dump()
@@ -381,6 +447,7 @@ class TestUpdateValidateTodo:
             "priority": priority["key"],
             "completed": False,
             "user_key": user_key,
+            "status": status["key"],
         }
         response = await auth_client.put(f"/api/v1/todo/{todo_key}", json=invalid_data)
         assert response.status == 422
@@ -399,12 +466,16 @@ class TestPatchTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         todo_data = TodoCreate(
             title="Test Todo",
             description="Test Description",
             priority=priority["key"],
             completed=False,
             user_key=user_key,
+            status=status["key"],
         )
         create_response = await auth_client.post(
             "/api/v1/todos", json=todo_data.model_dump()
@@ -417,6 +488,7 @@ class TestPatchTodo:
         patch_data = TodoPatch(
             title="Patched Title",
             completed=True,
+            status=status["key"],
         )
         response = await auth_client.patch(
             f"/api/v1/todo/{todo_key}", json=patch_data.model_dump()
@@ -427,6 +499,7 @@ class TestPatchTodo:
         assert data["completed"] is True
         assert data["description"] == todo_data.description
         assert data["priority"] == todo_data.priority
+        assert data["status"] == todo_data.status
 
     @pytest.mark.asyncio
     async def test_patch_todo_not_found(self, auth_client):
@@ -453,12 +526,16 @@ class TestPatchValidateTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         todo_data = TodoCreate(
             title="Test Todo",
             description="Test Description",
             priority=priority["key"],
             completed=False,
             user_key=user_key,
+            status=status["key"],
         )
         create_response = await auth_client.post(
             "/api/v1/todos", json=todo_data.model_dump()
@@ -471,6 +548,7 @@ class TestPatchValidateTodo:
         invalid_data = {
             "title": "A" * 101,
             "completed": True,
+            "status": status["key"],
         }
         response = await auth_client.patch(
             f"/api/v1/todo/{todo_key}", json=invalid_data
@@ -487,12 +565,16 @@ class TestPatchValidateTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         todo_data = TodoCreate(
             title="Test Todo",
             description="Test Description",
             priority=priority["key"],
             completed=False,
             user_key=user_key,
+            status=status["key"],
         )
         create_response = await auth_client.post(
             "/api/v1/todos", json=todo_data.model_dump()
@@ -507,6 +589,7 @@ class TestPatchValidateTodo:
             "description": "Test Description",
             "priority": "invalid",
             "completed": False,
+            "status": status["key"],
         }
         response = await auth_client.patch(
             f"/api/v1/todo/{todo_key}", json=invalid_data
@@ -525,12 +608,16 @@ class TestDeleteTodo:
         priority = await PriorityFactory.create_priority(
             db_conn, user_key, name="High", order=1
         )
+        status = await StatusFactory.create_status(
+            db_conn, user_key, name="Status 1", order=1
+        )
         todo_data = TodoCreate(
             title="Test Todo",
             description="Test Description",
             priority=priority["key"],
             completed=False,
             user_key=user_key,
+            status=status["key"],
         )
         create_response = await auth_client.post(
             "/api/v1/todos", json=todo_data.model_dump()

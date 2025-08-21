@@ -11,6 +11,7 @@ from .routes import (
     apply_todo_routes,
     apply_priority_routes,
     apply_user_routes,
+    apply_status_routes,
 )
 
 
@@ -31,6 +32,7 @@ def register_all_routes() -> web.RouteTableDef:
     apply_auth_routes(routes)  # Authentication
     apply_todo_routes(routes)  # Todo management
     apply_priority_routes(routes)  # Priority management
+    apply_status_routes(routes)  # Status management
     apply_user_routes(routes)  # User management
 
     return routes

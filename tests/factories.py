@@ -51,7 +51,7 @@ class PriorityFactory:
             "name": fake.word().title(),
             "description": fake.sentence(),
             "color": fake.hex_color(),
-            "icon": "star",
+            "icon": "fa-star",
             "order": fake.random_int(min=1, max=10),
             "user_key": user_key,
         }
@@ -87,7 +87,7 @@ class PriorityFactory:
 class TodoFactory:
     @staticmethod
     def create_todo_data(
-        user_key: str, priority_key: str, **overrides
+        user_key: str, priority_key: str, status_key: str, **overrides
     ) -> Dict[str, Any]:
         data = {
             "key": str(uuid.uuid4()),
@@ -96,19 +96,22 @@ class TodoFactory:
             "completed": False,
             "priority": priority_key,
             "user_key": user_key,
+            "status": status_key,
         }
         data.update(overrides)
         return data
 
     @staticmethod
     async def create_todo(
-        conn, user_key: str, priority_key: str, **overrides
+        conn, user_key: str, priority_key: str, status_key: str, **overrides
     ) -> Dict[str, Any]:
-        todo_data = TodoFactory.create_todo_data(user_key, priority_key, **overrides)
+        todo_data = TodoFactory.create_todo_data(
+            user_key, priority_key, status_key, **overrides
+        )
         return await conn.fetchrow(
             """
-            INSERT INTO todos (key, title, description, completed, priority, user_key)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO todos (key, title, description, completed, priority, user_key, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
             """,
             todo_data["key"],
@@ -117,6 +120,7 @@ class TodoFactory:
             todo_data["completed"],
             todo_data["priority"],
             user_key,
+            status_key,
         )
 
 
@@ -159,3 +163,46 @@ class AuthFactory:
         )
 
         return {"Authorization": f"Bearer {token}"}
+
+
+class StatusFactory:
+    @staticmethod
+    def create_status_data(user_key: str, **overrides) -> Dict[str, Any]:
+        data = {
+            "key": str(uuid.uuid4()),
+            "name": fake.word().title(),
+            "description": fake.sentence(),
+            "color": fake.hex_color(),
+            "icon": "fa-star",
+            "order": fake.random_int(min=1, max=10),
+            "user_key": user_key,
+            "is_default": False,
+        }
+        data.update(overrides)
+        return data
+
+    @staticmethod
+    async def create_status(conn, user_key: str, **overrides) -> Dict[str, Any]:
+        status_data = StatusFactory.create_status_data(user_key, **overrides)
+        return await conn.fetchrow(
+            """
+            INSERT INTO statuses (key, name, description, color, icon, "order", user_key, is_default)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *
+            """,
+            status_data["key"],
+            status_data["name"],
+            status_data["description"],
+            status_data["color"],
+            status_data["icon"],
+            status_data["order"],
+            user_key,
+            status_data["is_default"],
+        )
+
+    @staticmethod
+    async def create_statuses_recursively(conn, user_key: str, count: int = 10):
+        for i in range(count):
+            await StatusFactory.create_status(
+                conn, user_key, order=i + 1, name=f"Status {i + 1}"
+            )

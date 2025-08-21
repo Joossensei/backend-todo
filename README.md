@@ -871,6 +871,176 @@ Authorization: Bearer <access_token>
 
 ---
 
+## Status routes
+
+### GET `/api/v1/statuses`
+
+Get all statuses for the authenticated user.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Query Parameters:**
+
+1. `page` (int, optional): The page number to get.
+   - Default is `1`.
+2. `size` (int, optional): The number of statuses to get per page
+   - Default: `10`
+   - Maximum: `100`
+
+**Response:**
+
+```json
+
+{
+  "statuses": [
+    {
+      "key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+      "name": "Status 1",
+      "description": "Status 1 description",
+      "color": "#FF0000",
+      "icon": "fa-check",
+      "order": 1,
+      "is_default": true,
+      "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+      "created_at": "2025-08-12T08:26:31.453798Z",
+      "updated_at": "2025-08-12T08:26:31.453798Z"
+    },
+    ...
+  ],
+  "total": 180,
+  "page": 3,
+  "size": 10,
+  "success": true,
+  "next_link": "/statuses?page=2&size=10",
+  "prev_link": "/statuses?page=4&size=10"
+}
+```
+
+### GET `/api/v1/status/{key}`
+
+Get a single status for the authenticated user.
+
+**Path Parameters**
+
+- `key`: The key of the Status record you would like to fetch
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Response Body:**
+
+```json
+{
+  "key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+  "name": "Status 1",
+  "description": "Status 1 description",
+  "color": "#FF0000",
+  "icon": "fa-check",
+  "order": 1,
+  "is_default": true,
+  "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+  "created_at": "2025-08-12T08:26:31.453798Z",
+  "updated_at": "2025-08-12T08:26:31.453798Z",
+  "success": true
+}
+```
+
+### POST `/api/v1/statuses`
+
+Create a status for the authenticated user.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+_Note: The `is_default` field is optional and if not provided will default to `false`_
+**Request Body:**
+
+```json
+{
+  "name": "Status 1",
+  "description": "Status 1 description",
+  "color": "#FF0000",
+  "icon": "fa-check",
+  "order": 1,
+  "is_default": true
+}
+```
+
+**Response Body:**
+
+```json
+{
+  "key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+  "name": "Status 1",
+  "description": "Status 1 description",
+  "color": "#FF0000",
+  "icon": "fa-check",
+  "order": 1,
+  "is_default": true,
+  "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+  "created_at": "2025-08-12T08:26:31.453798Z",
+  "updated_at": "2025-08-12T08:26:31.453798Z",
+  "success": true
+}
+```
+
+### PUT `/api/v1/status/{key}`
+
+Update an entire status
+
+**Path Parameters**
+
+- `key`: The key of the Status record you would like to update
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+
+```json
+{
+  "name": "Status 1 edited",
+  "description": "Status 1 description edited",
+  "color": "#000000",
+  "icon": "fa-check",
+  "order": 2,
+  "is_default": true
+}
+```
+
+**Response Body:**
+
+```json
+{
+  "key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+  "name": "Status 1 edited",
+  "description": "Status 1 description edited",
+  "color": "#000000",
+  "icon": "fa-check",
+  "order": 2,
+  "is_default": true,
+  "user_key": "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa",
+  "created_at": "2025-08-12T08:26:31.453798Z",
+  "updated_at": "2025-08-12T08:26:31.453798Z",
+  "success": true
+}
+```
+
+---
+
 # Rate limit table
 
 | Method     | Path                             | Rate limit                       | Keying basis |
@@ -897,3 +1067,9 @@ Authorization: Bearer <access_token>
 | **PATCH**  | `/api/v1/priority/{key}`         | 20 per minute and 200 per hour   | User key     |
 | **PATCH**  | `/api/v1/priority/{key}/reorder` | 20 per minute and 200 per hour   | User key     |
 | **DELETE** | `/api/v1/priority/{key}`         | 10 per minute and 50 per hour    | User key     |
+| **GET**    | `/api/v1/statuses`               | 10 per second and 200 per minute | User key     |
+| **GET**    | `/api/v1/status/{key}`           | 20 per second and 400 per minute | User key     |
+| **POST**   | `/api/v1/statuses`               | 10 per minute and 100 per hour   | User key     |
+| **PUT**    | `/api/v1/status/{key}`           | 20 per minute and 200 per hour   | User key     |
+| **PATCH**  | `/api/v1/status/{key}`           | 20 per minute and 200 per hour   | User key     |
+| **DELETE** | `/api/v1/status/{key}`           | 10 per minute and 50 per hour    | User key     |

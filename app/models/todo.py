@@ -23,6 +23,7 @@ class Todo(Base):
     completed = Column(Boolean, default=False)
     priority = Column(String(36), ForeignKey("priorities.key"), nullable=False)
     user_key = Column(String(36), ForeignKey("users.key"), nullable=False)
+    status = Column(String(36), ForeignKey("statuses.key"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -34,19 +35,22 @@ class Todo(Base):
         Index("ix_todo_user_key_key", "user_key", "key"),
         Index("ix_todo_user_key_completed", "user_key", "completed"),
         Index("ix_todo_user_key_priority", "user_key", "priority"),
+        Index("ix_todo_user_key_status", "user_key", "status"),
     )
 
     def __str__(self):
         return (
             f"Todo(id={self.id}, title='{self.title}',"
-            f" key='{self.key}', completed={self.completed}, user_key={self.user_key})"
+            f" key='{self.key}', completed={self.completed}, user_key={self.user_key},"
+            f" status={self.status})"
         )
 
     def __repr__(self):
         return (
             f"<Todo(id={self.id}, title='{self.title}',"
             f" key='{self.key}', completed={self.completed},"
-            f" priority={self.priority}, user_key={self.user_key})>"
+            f" priority={self.priority}, user_key={self.user_key},"
+            f" status={self.status})>"
         )
 
     def to_dict(self):
@@ -59,6 +63,7 @@ class Todo(Base):
             "completed": self.completed,
             "priority": self.priority,
             "user_key": self.user_key,
+            "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -71,6 +76,7 @@ class Todo(Base):
         print(f"   Completed: {self.completed}")
         print(f"   Priority: {self.priority}")
         print(f"   User Key: {self.user_key}")
+        print(f"   Status: {self.status}")
         if self.description:
             print(f"   Description: {self.description}")
         print(f"   Created: {self.created_at}")
