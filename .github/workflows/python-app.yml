@@ -75,8 +75,9 @@ jobs:
           echo "DATABASE_URL environment variable: $DATABASE_URL"
           # Let's also check what database Alembic is actually connecting to
           echo "Checking what database Alembic connects to:"
-          alembic current
+          alembic -c alembic_test.ini current
           # Run migrations with verbose output
+          echo "Running migrations with alembic_test.ini..."
           alembic -c alembic_test.ini upgrade head
 
           # Check the database
