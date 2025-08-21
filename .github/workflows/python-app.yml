@@ -70,7 +70,9 @@ jobs:
 
           # Run Alembic migrations
           echo "Running Alembic migrations..."
-          alembic -c alembic_test.ini upgrade head
+          echo "Using database URL: $TEST_DATABASE_URL"
+          echo "IS_TEST environment variable: $IS_TEST"
+          alembic upgrade head
 
           # Check the database
           echo "Checking the database..."
