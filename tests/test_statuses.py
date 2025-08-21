@@ -36,7 +36,7 @@ class TestGetStatuses:
         assert response.status == 200
         data = await response.json()
         assert data["page"] == 2
-        assert data["size"] == 5  # No statuses in database
+        assert data["size"] == 5  # Page size should be 5 when 20 statuses exist
 
     @pytest.mark.asyncio
     async def test_get_statuses_with_pagination_no_data(self, auth_client):
@@ -109,7 +109,7 @@ class TestCreateValidateStatus:
     async def test_create_status_long_name(self, auth_client):
         """Test creating a status with invalid data"""
         invalid_data = {
-            "name": "This is a long name that is greater than 100 characters for this it must be more than 100 characters so we type a very long string so it will fail",
+            "name": "A" * 101,
             "color": "#FF0000",
             "icon": "fa-chevron-up",
             "order": 1,
