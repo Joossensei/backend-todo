@@ -58,7 +58,7 @@ jobs:
           export DATABASE_URL="$TEST_DATABASE_URL"
           export SECRET_KEY="test-secret-key-for-github-actions-workflow"
           export DEBUG="True"
-          export IS_TESTING="True"
+          export IS_TEST="True"
           export ACCESS_TOKEN_EXPIRE_DAYS="30"
           export ALGORITHM="HS256"
           export JWT_ISSUER="todo-api"
@@ -93,7 +93,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:TESTDatabasePassword@localhost:61010/todo_TEST_db
           SECRET_KEY: test-secret-key-for-github-actions-workflow
           DEBUG: True
-          IS_TESTING: True
+          IS_TEST: True
           ACCESS_TOKEN_EXPIRE_DAYS: 30
           ALGORITHM: HS256
           JWT_ISSUER: todo-api
