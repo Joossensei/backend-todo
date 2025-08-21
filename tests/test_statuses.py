@@ -68,7 +68,6 @@ class TestCreateStatus:
             user_key=user_key,
             is_default=True,
         )
-        """Test creating a status successfully"""
         response = await auth_client.post(
             "/api/v1/statuses", json=sample_status_data.model_dump()
         )
