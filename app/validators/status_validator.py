@@ -120,7 +120,7 @@ class StatusPatchValidator:
                 raise ValidationError("Color must be less than 7 characters long")
             if not re.match(r"^#[0-9a-fA-F]{6}$", status.color):
                 raise ValidationError("Color must be a valid hex color")
-            return status
+        return status
 
     def validate_status_icon(
         status: StatusPatch,
@@ -130,7 +130,7 @@ class StatusPatchValidator:
                 raise ValidationError("Icon is required")
             if len(status.icon) > 100:
                 raise ValidationError("Icon must be less than 100 characters")
-            return status
+        return status
 
     def validate_status_order(
         status: StatusPatch,
@@ -138,7 +138,7 @@ class StatusPatchValidator:
         if status.order is not None:
             if status.order <= 0:
                 raise ValidationError("Order must be greater than 0")
-            return status
+        return status
 
     def validate_status(status: StatusPatch) -> StatusPatch:
         status = StatusPatchValidator.validate_status_name(status)
