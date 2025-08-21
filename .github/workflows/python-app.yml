@@ -70,17 +70,6 @@ jobs:
 
           # Run Alembic migrations
           echo "Running Alembic migrations..."
-          echo "Using database URL: $TEST_DATABASE_URL"
-          echo "IS_TEST environment variable: $IS_TEST"
-          echo "DATABASE_URL environment variable: $DATABASE_URL"
-          # Let's also check what database Alembic is actually connecting to
-          echo "Checking what database Alembic connects to:"
-          alembic -c alembic_test.ini current
-          # Run migrations with verbose output
-          echo "Running migrations with alembic_test.ini..."
-          # Let's also check what URL Alembic is actually using
-          echo "Alembic config file: alembic_test.ini"
-          echo "Checking if env.py is being used..."
           alembic -c alembic_test.ini upgrade head
 
           # Check the database
