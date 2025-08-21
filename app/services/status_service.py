@@ -115,7 +115,7 @@ class StatusService:
                 user_key,
             )
             if not resp:
-                raise NotFoundError(ValueError(f"Status with id {status_id} not found"))
+                raise NotFoundError(f"Status with id {status_id} not found")
             return resp
         except Exception as e:
             raise AppError(e)
