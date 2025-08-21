@@ -36,9 +36,7 @@ async def get_statuses(request: web.Request):
         request.query.get("page"), request.query.get("size")
     )
     try:
-        statuses = await StatusService.get_statuses(
-            db, current_user["key"], skip, size
-        )
+        statuses = await StatusService.get_statuses(db, current_user["key"], skip, size)
         if not statuses:
             return web.json_response(
                 StatusListResponse(
@@ -126,15 +124,14 @@ async def create_status(request: web.Request):
     try:
         # Check if all fields are present
         if not all(
-            key in status_data
-            for key in ["name", "color", "icon", "order", "user_key"]
+            key in status_data for key in ["name", "color", "icon", "order", "user_key"]
         ):
             raise ValidationError(custom_message="All fields are required")
         status_model = StatusCreate(**status_data)
-        status_model = StatusCreateValidator.validate_status(
-            status_model, current_user["key"]
+        status_model = StatusCreateValidator.validate_status(status_model)
+        status = await StatusService.create_status(
+            db, status_model, current_user["key"]
         )
-        status = await StatusService.create_status(db, status_model, current_user["key"])
         return web.json_response(
             StatusResponse(**record_to_dict(status)).model_dump(),
             status=201,
@@ -248,7 +245,9 @@ async def delete_status(request: web.Request):
     current_user = await AuthService.get_user(db, username)
     key = request.match_info["key"]
     try:
-        status_id = await StatusService.fetch_status_id_by_key(db, key, current_user["key"])
+        status_id = await StatusService.fetch_status_id_by_key(
+            db, key, current_user["key"]
+        )
         await StatusService.delete_status(db, status_id, current_user["key"])
         return web.Response(status=204)
     except UnauthorizedError as e:

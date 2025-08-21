@@ -41,13 +41,7 @@ class StatusCreateValidator:
             raise ValidationError("Order must be greater than 0")
         return status
 
-    def validate_status_description(status: StatusCreate) -> StatusCreate:
-        if status.description is not None:
-            if len(status.description) > 1000:
-                raise ValidationError("Description must be less than 1000 characters")
-        return status
-
-    def validate_status(status: StatusCreate, user_key: str) -> StatusCreate:
+    def validate_status(status: StatusCreate) -> StatusCreate:
         StatusCreateValidator.validate_status_name(status)
         StatusCreateValidator.validate_status_color(status)
         StatusCreateValidator.validate_status_icon(status)
