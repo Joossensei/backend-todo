@@ -333,7 +333,7 @@ class StatusService:
                 status_id = order_to_id[order]
                 id_to_new_order[status_id] = i + 1
 
-            # Update all priorities with new order values
+            # Update all statuses with new order values
             # Use temporary negative values to avoid constraint violations
             for status in statuses:
                 temp_order = -(status["id"])  # Use negative ID as temporary
