@@ -162,7 +162,7 @@ class TestCreateValidateTodo:
     async def test_create_todo_missing_required_fields(self, auth_client, db_conn):
         """Test creating a todo with missing required fields"""
         user_key = auth_client.session.headers["User-Key"]
-        status = await create_status(db_conn, user_key, name="Status 1")
+        status = await StatusFactory.create_status(db_conn, user_key, name="Status 1")
         invalid_data = {
             "description": "Test Description",
             "completed": False,
