@@ -327,7 +327,7 @@ class StatusService:
             current_orders.remove(from_order)
             current_orders.insert(to_order - 1, from_order)
 
-            # Create a mapping of priority ID to new order
+            # Create a mapping of status ID to new order
             id_to_new_order = {}
             for i, order in enumerate(current_orders):
                 status_id = order_to_id[order]
