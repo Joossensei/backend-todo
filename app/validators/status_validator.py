@@ -41,11 +41,6 @@ class StatusCreateValidator:
             raise ValidationError("Order must be greater than 0")
         return status
 
-    def validate_status_user_key(status: StatusCreate, user_key: str) -> StatusCreate:
-        if status.user_key != user_key:
-            raise ValidationError("User key is not valid")
-        return status
-
     def validate_status_description(status: StatusCreate) -> StatusCreate:
         if status.description is not None:
             if len(status.description) > 1000:
@@ -57,7 +52,6 @@ class StatusCreateValidator:
         StatusCreateValidator.validate_status_color(status)
         StatusCreateValidator.validate_status_icon(status)
         StatusCreateValidator.validate_status_order(status)
-        StatusCreateValidator.validate_status_user_key(status, user_key)
         return status
 
 
