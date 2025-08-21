@@ -14,6 +14,9 @@ from app.models import Status
 logger = logging.getLogger(__name__)
 
 
+UPDATABLE_FIELDS = ["name", "description", "color", "icon", "order"]
+
+
 class StatusService:
     @staticmethod
     async def create_status(
@@ -148,7 +151,7 @@ class StatusService:
             param_count = 1
 
             for field, value in status_update.model_dump().items():
-                if field in ["name", "description", "color", "icon", "order"]:
+                if field in UPDATABLE_FIELDS:
                     update_fields.append(f'"{field}" = ${param_count}')
                     values.append(value)
                     param_count += 1

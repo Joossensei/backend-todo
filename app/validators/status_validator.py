@@ -11,6 +11,7 @@ class StatusCreateValidator:
             raise ValidationError("Name is required")
         if len(status.name) > 100:
             raise ValidationError("Name must be less than 100 characters")
+        return status
 
     def validate_status_color(
         status: StatusCreate,
@@ -42,10 +43,10 @@ class StatusCreateValidator:
         return status
 
     def validate_status(status: StatusCreate) -> StatusCreate:
-        StatusCreateValidator.validate_status_name(status)
-        StatusCreateValidator.validate_status_color(status)
-        StatusCreateValidator.validate_status_icon(status)
-        StatusCreateValidator.validate_status_order(status)
+        status = StatusCreateValidator.validate_status_name(status)
+        status = StatusCreateValidator.validate_status_color(status)
+        status = StatusCreateValidator.validate_status_icon(status)
+        status = StatusCreateValidator.validate_status_order(status)
         return status
 
 
@@ -57,6 +58,7 @@ class StatusUpdateValidator:
             raise ValidationError("Name is required")
         if len(status.name) > 100:
             raise ValidationError("Name must be less than 100 characters")
+        return status
 
     def validate_status_color(
         status: StatusUpdate,
@@ -88,10 +90,10 @@ class StatusUpdateValidator:
         return status
 
     def validate_status(status: StatusUpdate) -> StatusUpdate:
-        StatusUpdateValidator.validate_status_name(status)
-        StatusUpdateValidator.validate_status_color(status)
-        StatusUpdateValidator.validate_status_icon(status)
-        StatusUpdateValidator.validate_status_order(status)
+        status = StatusUpdateValidator.validate_status_name(status)
+        status = StatusUpdateValidator.validate_status_color(status)
+        status = StatusUpdateValidator.validate_status_icon(status)
+        status = StatusUpdateValidator.validate_status_order(status)
         return status
 
 
@@ -104,6 +106,7 @@ class StatusPatchValidator:
                 raise ValidationError("Name is required")
             if len(status.name) > 100:
                 raise ValidationError("Name must be less than 100 characters")
+        return status
 
     def validate_status_color(
         status: StatusPatch,
@@ -138,8 +141,8 @@ class StatusPatchValidator:
             return status
 
     def validate_status(status: StatusPatch) -> StatusPatch:
-        StatusPatchValidator.validate_status_name(status)
-        StatusPatchValidator.validate_status_color(status)
-        StatusPatchValidator.validate_status_icon(status)
-        StatusPatchValidator.validate_status_order(status)
+        status = StatusPatchValidator.validate_status_name(status)
+        status = StatusPatchValidator.validate_status_color(status)
+        status = StatusPatchValidator.validate_status_icon(status)
+        status = StatusPatchValidator.validate_status_order(status)
         return status

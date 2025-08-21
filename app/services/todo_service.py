@@ -7,6 +7,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+UPDATABLE_FIELDS = ["title", "description", "priority", "status", "completed"]
+
 ALLOWED_SORTS = {
     "incomplete-priority-desc": "t.completed ASC, p.order ASC, t.id DESC",
     "priority-desc": "p.order ASC, t.id DESC",
@@ -222,13 +224,7 @@ class TodoService:
                 param_count = 1
 
                 for field, value in todo_update.model_dump().items():
-                    if field in [
-                        "title",
-                        "description",
-                        "completed",
-                        "priority",
-                        "status",
-                    ]:
+                    if field in UPDATABLE_FIELDS:
                         update_fields.append(f'"{field}" = ${param_count}')
                         values.append(value)
                         param_count += 1
