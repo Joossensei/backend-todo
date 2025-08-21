@@ -115,7 +115,7 @@ class TestCreateValidateStatus:
             "order": 1,
             "user_key": auth_client.session.headers["User-Key"],
             "is_default": True,
-        }  # Empty name
+        }  # Name exceeds 100 characters
         response = await auth_client.post("/api/v1/statuses", json=invalid_data)
         assert response.status == 422  # Validation error
         data = await response.json()
