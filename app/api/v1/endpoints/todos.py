@@ -34,6 +34,7 @@ async def get_todos(request: web.Request):
         completed = completed.lower() == "true"
     priority = request.query.get("priority")
     search = request.query.get("search")
+    status = request.query.get("status")
     try:
         todos = await TodoService.get_todos(
             db,
@@ -44,6 +45,7 @@ async def get_todos(request: web.Request):
             completed=completed,
             priority=priority,
             search=search,
+            status=status,
         )
         total = await TodoService.get_total_todos(db, current_user["key"])
         items = [TodoResponse(**record_to_dict(t)) for t in todos]

@@ -36,7 +36,7 @@ class TodoResponse(BaseModel):
     completed: bool
     priority: str
     user_key: str
-    status: str
+    status: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime]
 
@@ -48,7 +48,7 @@ class TodoResponse(BaseModel):
             "description": self.description,
             "completed": self.completed,
             "priority": self.priority,
-            "status": self.status,
+            "status": self.status if self.status else None,
             "user_key": self.user_key,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

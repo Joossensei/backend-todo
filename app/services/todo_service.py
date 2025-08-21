@@ -101,6 +101,7 @@ class TodoService:
         completed: Optional[bool] = None,
         priority: Optional[str] = None,
         search: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> list[asyncpg.Record]:
         try:
             where = ["t.user_key = $1"]
@@ -119,17 +120,28 @@ class TodoService:
                 where.append(f"t.title ILIKE ${next_idx}")
                 params.append(f"%{search}%")
                 next_idx += 1
-
+            if status is not None:
+                where.append(f"t.status = ${next_idx}")
+                params.append(status)
+                next_idx += 1
             order_by = ALLOWED_SORTS.get(sort, ALLOWED_SORTS["created-desc"])
-            sql = f"""
+            sql = (
+                """
                     SELECT t.*
                     FROM todos t
                     LEFT JOIN priorities p ON p.key = t.priority
-                    LEFT JOIN statuses s ON s.key = t.status
+                    """
+                + (
+                    " LEFT JOIN statuses s ON s.key = t.status "
+                    if status is not None
+                    else ""
+                )
+                + f"""
                     WHERE {' AND '.join(where)}
                     ORDER BY {order_by}
                     OFFSET ${next_idx} LIMIT ${next_idx + 1}
                     """
+            )
             params.extend([skip, limit])
             resp = await conn.fetch(sql, *params)
             return resp
