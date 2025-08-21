@@ -293,7 +293,7 @@ class StatusService:
                     f"Status with order {from_order} not found for user"
                 )
 
-            # Get all priorities for this user ordered by current order
+            # Get all statuses for this user ordered by current order
             statuses = await conn.fetch(
                 """
                 SELECT id, "order" FROM statuses
