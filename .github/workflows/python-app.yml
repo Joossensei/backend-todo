@@ -54,7 +54,7 @@ jobs:
           echo "PostgreSQL is ready!"
 
           # Set environment variables for the test database
-          export TEST_DATABASE_URL="postgresql+asyncpg://postgres:TESTDatabasePassword@localhost:61010/todo_TEST_db"
+          export TEST_DATABASE_URL="postgresql://postgres:TESTDatabasePassword@localhost:61010/todo_TEST_db"
           export DATABASE_URL="$TEST_DATABASE_URL"
           export SECRET_KEY="test-secret-key-for-github-actions-workflow"
           export DEBUG="True"
@@ -95,8 +95,8 @@ jobs:
 
       - name: Test with pytest
         env:
-          TEST_DATABASE_URL: postgresql+asyncpg://postgres:TESTDatabasePassword@localhost:61010/todo_TEST_db
-          DATABASE_URL: postgresql+asyncpg://postgres:TESTDatabasePassword@localhost:61010/todo_TEST_db
+          TEST_DATABASE_URL: postgresql://postgres:TESTDatabasePassword@localhost:61010/todo_TEST_db
+          DATABASE_URL: postgresql://postgres:TESTDatabasePassword@localhost:61010/todo_TEST_db
           SECRET_KEY: test-secret-key-for-github-actions-workflow
           DEBUG: True
           IS_TEST: True
