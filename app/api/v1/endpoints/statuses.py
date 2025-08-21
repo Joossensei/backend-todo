@@ -1,4 +1,4 @@
-# app/api/v1/endpoints/todos.py
+# app/api/v1/endpoints/statuses.py
 from aiohttp import web
 from app.services.status_service import StatusService
 from app.services.auth_service import AuthService

@@ -293,7 +293,7 @@ class StatusService:
                     f"Status with order {from_order} not found for user"
                 )
 
-            # Get all priorities for this user ordered by current order
+            # Get all statuses for this user ordered by current order
             statuses = await conn.fetch(
                 """
                 SELECT id, "order" FROM statuses
@@ -333,7 +333,7 @@ class StatusService:
                 status_id = order_to_id[order]
                 id_to_new_order[status_id] = i + 1
 
-            # Update all priorities with new order values
+            # Update all statuses with new order values
             # Use temporary negative values to avoid constraint violations
             for status in statuses:
                 temp_order = -(status["id"])  # Use negative ID as temporary
