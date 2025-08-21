@@ -78,6 +78,9 @@ jobs:
           alembic -c alembic_test.ini current
           # Run migrations with verbose output
           echo "Running migrations with alembic_test.ini..."
+          # Let's also check what URL Alembic is actually using
+          echo "Alembic config file: alembic_test.ini"
+          echo "Checking if env.py is being used..."
           alembic -c alembic_test.ini upgrade head
 
           # Check the database
@@ -86,6 +89,8 @@ jobs:
           # First, let's see what tables exist
           echo "Available tables:"
           psql -h localhost -p 61010 -U postgres -d todo_TEST_db -c "\dt"
+          echo "Checking alembic_version table:"
+          psql -h localhost -p 61010 -U postgres -d todo_TEST_db -c "SELECT * FROM alembic_version;"
           echo "Checking users table:"
           psql -h localhost -p 61010 -U postgres -d todo_TEST_db -c "SELECT 1 FROM users;"
           echo "Database check complete!"
