@@ -57,7 +57,7 @@ class StatusService:
     async def fetch_status_id_by_key(
         conn: asyncpg.Connection, key: str, user_key: str
     ) -> int:
-        """Get a priority by its UUID key instead of ID."""
+        """Get a status by its UUID key instead of ID."""
         try:
             db_status = await conn.fetchrow(
                 """
