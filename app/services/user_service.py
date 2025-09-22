@@ -133,6 +133,32 @@ class UserService:
             return updated_user
 
     @staticmethod
+    async def patch_user(conn: asyncpg.Connection, key: str, user: UserUpdate, user_key: str) -> asyncpg.Record:
+        async with conn.transaction():
+            db_user = await UserService.get_user_by_key(conn, key)
+            if not db_user:
+                raise NotFoundError(f"User with key {key} not found")
+            param_count = 3
+            update_fields = []
+            update_values = []
+            update_values.append(db_user["id"])
+            update_values.append(key)
+            for field, value in user.model_dump().items():
+                if value is not None:
+                    update_fields.append(f'"{field}" = ${param_count}')
+                    update_values.append(value)
+                    param_count += 1
+            sql = f"""
+            UPDATE users u
+            SET {', '.join(update_fields)}
+            WHERE u.id = $1 AND u.key = $2
+            RETURNING *
+            """
+            updated_user = await conn.fetchrow(sql, *update_values)
+            logger.info(f"Updated user: {updated_user}")
+            return updated_user
+
+    @staticmethod
     async def delete_user(conn: asyncpg.Connection, key: str) -> bool:
         async with conn.transaction():
             db_user = await UserService.get_user_by_key(conn, key)

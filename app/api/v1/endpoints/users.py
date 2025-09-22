@@ -10,7 +10,7 @@ from app.schemas.user import (
 )
 from app.utils.mapping import record_to_dict
 from app.utils.pagination import build_pagination_link, parse_pagination
-from app.core.errors import AppError, NotFoundError, ValidationError
+from app.core.errors import AppError, NotFoundError, ValidationError, UnauthorizedError
 import logging
 from app.middleware.authentication import require_auth
 from app.validators.user_validator import (
@@ -151,6 +151,52 @@ async def update_user(
         raise ValidationError(e.errors())
     except Exception as e:
         logger.error(f"Error updating user: {e}")
+        raise AppError(e)
+
+
+@require_auth()
+async def patch_user(request: web.Request):
+    db = request["conn"]
+    key = request.match_info["key"]
+    user_in = await request.json()
+    try:
+        user = await UserService.get_user_by_key(db, key)
+        if not user:
+            raise NotFoundError(f"User with key {key} not found")
+    except NotFoundError as e:
+        logger.error(f"Not found error: {e}")
+        raise
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise
+    except pydantic.ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise ValidationError(e.errors())
+    except Exception as e:
+        logger.error(f"Error patching user: {e}")
+        raise AppError(e)
+    try:
+        user_model = UserUpdate(**user_in)
+        user_model = await UserUpdateValidator.validate_user(user_model, db, key)
+        user = await UserService.patch_user(db, key, user_model, request["user"])
+        return web.json_response(
+            UserResponse(**record_to_dict(user)).model_dump(),
+            status=200,
+        )
+    except UnauthorizedError as e:
+        logger.error(f"Unauthorized error: {e}")
+        raise UnauthorizedError(e)
+    except NotFoundError as e:
+        logger.error(f"Not found error: {e}")
+        raise
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise
+    except pydantic.ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise ValidationError(e.errors())
+    except Exception as e:
+        logger.error(f"Error patching user: {e}")
         raise AppError(e)
 
 

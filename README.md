@@ -32,7 +32,7 @@ cp .env.example .env
 5. Run the application
 
 ```bash
-uvicorn app.main:app --reload
+python main_aiohttp.py
 ```
 
 This approach ensures your repository stays clean, small, and portable across different environments!

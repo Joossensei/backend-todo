@@ -31,6 +31,11 @@ def apply_user_routes(routes: web.RouteTableDef) -> None:
         """Update an existing user."""
         return await users.update_user(request)
 
+    @routes.patch("/api/v1/user/{key}")
+    async def patch_user(request: web.Request):
+        """Partially update an existing user."""
+        return await users.patch_user(request)
+
     @routes.put("/api/v1/user/{key}/password")
     async def update_user_password(request: web.Request):
         """Update a user's password."""

@@ -101,8 +101,10 @@ class UserUpdateValidator:
     ) -> UserUpdate:
         if user.name is not None:
             if user.name.strip() == "":
+                logger.info("Name is required")
                 raise ValidationError("Name is required")
             if len(user.name) > 100:
+                logger.info("Name must be less than 100 characters")
                 raise ValidationError("Name must be less than 100 characters")
         return user
 
@@ -111,8 +113,10 @@ class UserUpdateValidator:
     ) -> UserUpdate:
         if user.email is not None:
             if user.email.strip() == "":
+                logger.info("Email is required")    
                 raise ValidationError("Email is required")
             if len(user.email) > 255:
+                logger.info("Email must be less than 255 characters")
                 raise ValidationError("Email must be less than 255 characters")
             # EmailStr from pydantic already validates email format
         return user
@@ -122,6 +126,7 @@ class UserUpdateValidator:
     ) -> UserUpdate:
         if user.is_active is not None:
             if not isinstance(user.is_active, bool):
+                logger.info("Is active must be a boolean")
                 raise ValidationError("Is active must be a boolean")
         return user
 
@@ -133,6 +138,7 @@ class UserUpdateValidator:
         if user.email is not None:
             existing_user = await UserService.get_user_by_email(db, user.email)
             if existing_user and existing_user.key != current_user_key:
+                logger.info("Email already exists")
                 raise ValidationError("Email already exists")
         return user
 
